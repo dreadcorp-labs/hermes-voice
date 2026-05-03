@@ -121,6 +121,9 @@ HERMES_API_REASONING_EFFORT=none
 HERMES_LIVEKIT_MODEL_CHOICES=$HERMES_LIVEKIT_MODEL_CHOICES
 HERMES_LIVEKIT_HERMES_STREAMING=true
 HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS=90
+HERMES_VOICE_DEMO_SCRIPT_ENABLED=false
+HERMES_VOICE_DEMO_SCRIPT_PATH=$CONFIG_DIR/demo-script.txt
+HERMES_VOICE_DEMO_SCRIPT_STATE_PATH=$CONFIG_DIR/demo-script.state
 HERMES_DISCOVERY_CIDRS=$HERMES_DISCOVERY_CIDRS
 HERMES_DISCOVERY_PORTS=$HERMES_DISCOVERY_PORTS
 HERMES_DISCOVERY_MAX_HOSTS=512
@@ -147,6 +150,16 @@ EOF
 fi
 
 chmod 600 "$CONFIG_DIR/livekit.yaml" "$CONFIG_DIR/hermes-voice.env"
+
+if [ ! -f "$CONFIG_DIR/demo-script.txt" ]; then
+  cat > "$CONFIG_DIR/demo-script.txt" <<'EOF'
+# Demo script mode is off by default.
+# Enable it by setting HERMES_VOICE_DEMO_SCRIPT_ENABLED=true in hermes-voice.env.
+# Each non-empty line is one exact reply. Use a line with --- between multi-line replies.
+Hermes Voice demo script is ready.
+EOF
+  chmod 600 "$CONFIG_DIR/demo-script.txt"
+fi
 
 redis-server --bind 127.0.0.1 --port "$REDIS_PORT" --save "" --appendonly no --dir "$DATA_DIR/redis" &
 redis_pid=$!

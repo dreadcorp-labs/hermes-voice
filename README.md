@@ -61,6 +61,13 @@ The Settings screen can also request an update. Packaged installs include a
 small updater helper container that owns Docker access, while the voice app only
 writes a local update request file.
 
+Demo video mode:
+
+For rehearsed demos, packaged installs support an off-by-default script mode.
+Set `HERMES_VOICE_DEMO_SCRIPT_ENABLED=true` in `config/hermes-voice.env`, put
+one exact reply per line in `config/demo-script.txt`, then restart the container.
+Say "reset demo" to return to the first line.
+
 Open:
 
 ```text
