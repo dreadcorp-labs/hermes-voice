@@ -46,7 +46,7 @@ services:
   updater:
     image: docker:28-cli
     restart: unless-stopped
-    command: ["sh", "/usr/local/bin/hermes-voice-update-daemon"]
+    command: ["sh", "-lc", "apk add --no-cache bash >/dev/null && exec sh /usr/local/bin/hermes-voice-update-daemon"]
     environment:
       HERMES_VOICE_INSTALL_DIR: ${HERMES_VOICE_INSTALL_DIR}
       HERMES_VOICE_SOURCE_DIR: ${HERMES_VOICE_SOURCE_DIR}
