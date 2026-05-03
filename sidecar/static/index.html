@@ -62,14 +62,55 @@
       --line-strong: color-mix(in oklch, var(--text) 25%, transparent);
       --panel: color-mix(in oklch, var(--surface) 88%, transparent);
       --panel-solid: oklch(10.8% 0.012 150);
+      --accent: oklch(76% 0.115 76);
+      --accent-soft: oklch(84% 0.055 78);
+      --accent-rgb: 242 184 92;
+      --accent-hot-rgb: 255 244 216;
+      --accent-mid-rgb: 255 209 132;
+      --accent-muted-rgb: 242 184 92;
       --green: oklch(76% 0.12 150);
       --blue: oklch(76% 0.08 218);
-      --gold: oklch(76% 0.115 76);
-      --gold-soft: oklch(84% 0.055 78);
+      --gold: var(--accent);
+      --gold-soft: var(--accent-soft);
       --red: oklch(68% 0.18 28);
       --shadow: rgba(0, 0, 0, 0.48);
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    :root[data-palette="green"] {
+      --accent: oklch(76% 0.15 150);
+      --accent-soft: oklch(86% 0.07 152);
+      --accent-rgb: 74 222 128;
+      --accent-hot-rgb: 220 255 232;
+      --accent-mid-rgb: 126 246 178;
+      --accent-muted-rgb: 74 222 128;
+    }
+
+    :root[data-palette="red"] {
+      --accent: oklch(68% 0.18 28);
+      --accent-soft: oklch(82% 0.08 32);
+      --accent-rgb: 255 87 87;
+      --accent-hot-rgb: 255 232 220;
+      --accent-mid-rgb: 255 138 112;
+      --accent-muted-rgb: 255 87 87;
+    }
+
+    :root[data-palette="outrun"] {
+      --bg: oklch(7.2% 0.035 292);
+      --surface: oklch(11% 0.035 292);
+      --surface-2: oklch(15% 0.04 292);
+      --surface-3: oklch(19% 0.055 292);
+      --text: oklch(95% 0.025 318);
+      --muted: oklch(76% 0.045 320);
+      --accent: oklch(76% 0.24 338);
+      --accent-soft: oklch(83% 0.13 210);
+      --accent-rgb: 255 54 169;
+      --accent-hot-rgb: 255 238 252;
+      --accent-mid-rgb: 57 255 243;
+      --accent-muted-rgb: 176 78 255;
+      --line: color-mix(in oklch, var(--accent-soft) 22%, transparent);
+      --line-strong: color-mix(in oklch, var(--accent-soft) 34%, transparent);
     }
 
     * {
@@ -108,6 +149,17 @@
         radial-gradient(circle at 86% 14%, rgba(60, 43, 20, 0.12), transparent 30%),
         var(--bg);
       background-size: 32px 32px, 32px 32px, auto, auto, auto, auto;
+    }
+
+    :root[data-palette="outrun"] canvas {
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+        radial-gradient(circle at 50% 42%, rgba(255, 54, 169, 0.14), transparent 34%),
+        radial-gradient(circle at 16% 86%, rgba(57, 255, 243, 0.14), transparent 32%),
+        radial-gradient(circle at 88% 14%, rgba(176, 78, 255, 0.2), transparent 30%),
+        linear-gradient(180deg, rgba(16, 4, 30, 0.0), rgba(255, 54, 169, 0.045)),
+        var(--bg);
     }
 
     .chrome {
@@ -231,6 +283,13 @@
       animation: toolReadoutFade 2.8s linear both;
     }
 
+    :root[data-palette="outrun"] .readout.tool-cue .state {
+      color: rgb(var(--accent-hot-rgb));
+      text-shadow:
+        0 0 12px rgb(var(--accent-rgb) / 0.58),
+        0 0 28px rgb(var(--accent-mid-rgb) / 0.34);
+    }
+
     .readout.tool-cue .detail {
       color: rgba(244, 247, 245, 0.82);
       animation: toolReadoutDetailFade 2.8s linear both;
@@ -278,12 +337,12 @@
       top: var(--ticker-top, 45vh);
       max-width: none;
       white-space: nowrap;
-      color: rgba(242, 184, 92, 0.82);
+      color: rgb(var(--accent-mid-rgb) / 0.82);
       font: 800 clamp(14px, 1.8vw, 24px)/1 var(--font-display);
       text-transform: lowercase;
       text-shadow:
-        0 0 7px rgba(242, 184, 92, 0.78),
-        0 0 22px rgba(242, 184, 92, 0.4);
+        0 0 7px rgb(var(--accent-rgb) / 0.78),
+        0 0 22px rgb(var(--accent-rgb) / 0.4);
       opacity: 0;
       transform: translateX(calc(100vw + 24px));
       animation: toolTickerRun var(--ticker-duration, 2.1s) linear forwards;
@@ -300,17 +359,25 @@
       color: #fff4d8;
       font-weight: 900;
       text-shadow:
-        0 0 8px rgba(255, 244, 216, 0.92),
-        0 0 28px rgba(242, 184, 92, 0.74);
+        0 0 8px rgb(var(--accent-hot-rgb) / 0.92),
+        0 0 28px rgb(var(--accent-rgb) / 0.74);
+    }
+
+    :root[data-palette="outrun"] .tool-ticker-line .hot {
+      color: rgb(var(--accent-hot-rgb));
+      text-shadow:
+        0 0 8px rgb(var(--accent-mid-rgb) / 0.88),
+        0 0 30px rgb(var(--accent-rgb) / 0.78),
+        0 0 52px rgb(var(--accent-muted-rgb) / 0.48);
     }
 
     .tool-ticker-line .strong {
-      color: #ffd184;
+      color: rgb(var(--accent-mid-rgb));
       font-weight: 900;
     }
 
     .tool-ticker-line .dim {
-      color: rgba(242, 184, 92, 0.46);
+      color: rgb(var(--accent-rgb) / 0.46);
       font-weight: 680;
     }
 
@@ -355,7 +422,7 @@
       content: "";
       position: absolute;
       inset: 5px;
-      border: 1px solid rgba(242, 184, 92, 0.08);
+      border: 1px solid rgb(var(--accent-rgb) / 0.08);
       border-radius: 5px;
       pointer-events: none;
     }
@@ -388,7 +455,7 @@
     button:focus-visible,
     textarea:focus-visible,
     input:focus-visible {
-      outline: 2px solid rgba(242, 184, 92, 0.9);
+      outline: 2px solid rgb(var(--accent-rgb) / 0.9);
       outline-offset: 3px;
     }
 
@@ -415,8 +482,8 @@
     }
 
     .icon-button.active {
-      border-color: rgba(242, 184, 92, 0.44);
-      background: rgba(242, 184, 92, 0.14);
+      border-color: rgb(var(--accent-rgb) / 0.44);
+      background: rgb(var(--accent-rgb) / 0.14);
     }
 
     .icon-button.danger.active {
@@ -432,8 +499,8 @@
 
     .icon-button.mic-active .icon {
       filter:
-        drop-shadow(0 0 5px rgba(242, 184, 92, 0.78))
-        drop-shadow(0 0 14px rgba(242, 184, 92, 0.42));
+        drop-shadow(0 0 5px rgb(var(--accent-rgb) / 0.78))
+        drop-shadow(0 0 14px rgb(var(--accent-rgb) / 0.42));
     }
 
     #mute::after {
@@ -542,7 +609,7 @@
     .send {
       min-width: 86px;
       padding: 0 18px;
-      border-color: rgba(242, 184, 92, 0.4);
+      border-color: rgb(var(--accent-rgb) / 0.4);
       background: linear-gradient(180deg, color-mix(in oklch, var(--surface-3) 58%, var(--gold) 18%), color-mix(in oklch, var(--surface-2) 76%, var(--gold) 12%));
       font-weight: 800;
     }
@@ -872,26 +939,26 @@
 
     .entry.user .entry-avatar {
       color: var(--green);
-      background: rgba(242, 184, 92, 0.1);
+      background: rgb(var(--accent-rgb) / 0.1);
       font-size: 11px;
       font-weight: 780;
     }
 
     .entry.assistant .entry-avatar {
       color: var(--gold);
-      background: rgba(242, 184, 92, 0.1);
+      background: rgb(var(--accent-rgb) / 0.1);
       font-size: 11px;
       font-weight: 780;
     }
 
     .entry.tool .entry-body {
-      border-color: rgba(242, 184, 92, 0.22);
-      background: rgba(242, 184, 92, 0.08);
+      border-color: rgb(var(--accent-rgb) / 0.22);
+      background: rgb(var(--accent-rgb) / 0.08);
     }
 
     .entry.tool .entry-avatar {
       color: var(--gold);
-      background: rgba(242, 184, 92, 0.12);
+      background: rgb(var(--accent-rgb) / 0.12);
     }
 
     .entry.system {
@@ -925,7 +992,7 @@
       height: 4px;
       overflow: hidden;
       border-radius: 999px;
-      background: rgba(242, 184, 92, 0.08);
+      background: rgb(var(--accent-rgb) / 0.08);
       transform: translateX(-50%);
       pointer-events: none;
       z-index: 4;
@@ -939,7 +1006,7 @@
       width: var(--meter-level, 0%);
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, rgba(242, 184, 92, 0), rgba(255, 209, 132, 0.98) 45%, #ffd184 50%, rgba(255, 209, 132, 0.98) 55%, rgba(242, 184, 92, 0));
+      background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0), rgb(var(--accent-mid-rgb) / 0.98) 45%, rgb(var(--accent-mid-rgb)) 50%, rgb(var(--accent-mid-rgb) / 0.98) 55%, rgb(var(--accent-rgb) / 0));
       transform: translateX(-50%);
     }
 
@@ -949,7 +1016,7 @@
       top: calc(88px + var(--safe-top));
       min-height: 18px;
       max-width: min(360px, 68vw);
-      color: rgba(255, 209, 132, 0.9);
+      color: rgb(var(--accent-mid-rgb) / 0.9);
       font-size: 11px;
       line-height: 1.2;
       font-weight: 680;
@@ -958,7 +1025,7 @@
       letter-spacing: 0;
       opacity: 0;
       transform: translateX(-50%);
-      text-shadow: 0 0 14px rgba(242, 184, 92, 0.42);
+      text-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.42);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1159,6 +1226,15 @@
         </select>
       </div>
       <div class="field">
+        <label for="paletteSelect">ui palette</label>
+        <select id="paletteSelect">
+          <option value="amber">amber</option>
+          <option value="green">green</option>
+          <option value="red">red</option>
+          <option value="outrun">outrun</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="ttsSelect">TTS provider</label>
         <select id="ttsSelect"></select>
       </div>
@@ -1261,6 +1337,7 @@
     const attachmentTrayEl = document.getElementById('attachmentTray');
     const modelSelectEl = document.getElementById('modelSelect');
     const reasoningSelectEl = document.getElementById('reasoningSelect');
+    const paletteSelectEl = document.getElementById('paletteSelect');
     const ttsSelectEl = document.getElementById('ttsSelect');
     const audioInputSelectEl = document.getElementById('audioInputSelect');
     const audioOutputSelectEl = document.getElementById('audioOutputSelect');
@@ -1313,15 +1390,48 @@
     const AGENT_NAME = 'Hermes Voice';
     const desktopShell = Boolean(window.hermesDesktop) || new URLSearchParams(window.location.search).get('desktop') === '1';
     const savedMicMode = localStorage.getItem('hermes.micMode');
+    const savedPalette = localStorage.getItem('hermes.uiPalette') || 'amber';
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isMobile = matchMedia('(max-width: 620px)').matches;
     const particleCount = reducedMotion ? (isMobile ? 336 : 560) : (isMobile ? 1120 : 2080);
+    const PALETTES = {
+      amber: {
+        background: [242, 184, 92],
+        speakingGlow: [242, 184, 92],
+        particles: { thinking: [242, 184, 92], speaking: [242, 184, 92], listening: [242, 184, 92], error: [255, 116, 109], disconnected: [126, 199, 255], default: [210, 246, 235] },
+        speakingPush: [255, 228, 156],
+        ticker: { hot: [255, 244, 216], strong: [255, 209, 132], dim: [242, 184, 92], normal: [242, 184, 92] },
+      },
+      green: {
+        background: [74, 222, 128],
+        speakingGlow: [74, 222, 128],
+        particles: { thinking: [74, 222, 128], speaking: [112, 255, 183], listening: [74, 222, 128], error: [255, 116, 109], disconnected: [126, 199, 255], default: [210, 246, 235] },
+        speakingPush: [210, 255, 230],
+        ticker: { hot: [221, 255, 232], strong: [126, 246, 178], dim: [74, 222, 128], normal: [74, 222, 128] },
+      },
+      red: {
+        background: [255, 87, 87],
+        speakingGlow: [255, 87, 87],
+        particles: { thinking: [255, 87, 87], speaking: [255, 128, 96], listening: [255, 87, 87], error: [255, 116, 109], disconnected: [126, 199, 255], default: [255, 226, 215] },
+        speakingPush: [255, 208, 190],
+        ticker: { hot: [255, 232, 220], strong: [255, 138, 112], dim: [255, 87, 87], normal: [255, 87, 87] },
+      },
+      outrun: {
+        background: [176, 78, 255],
+        speakingGlow: [255, 54, 169],
+        particles: { thinking: [255, 54, 169], speaking: [57, 255, 243], listening: [176, 78, 255], error: [255, 76, 118], disconnected: [66, 185, 255], default: [252, 220, 255] },
+        speakingPush: [255, 244, 96],
+        ticker: { hot: [255, 244, 96], strong: [57, 255, 243], dim: [176, 78, 255], normal: [255, 54, 169] },
+      },
+    };
 
     let room = null;
     let localAudioTrack = null;
     let participantIdentity = '';
     let micMode = savedMicMode === 'toggle' ? 'toggle' : 'open';
     let muted = micMode !== 'open';
+    let currentPaletteName = Object.prototype.hasOwnProperty.call(PALETTES, savedPalette) ? savedPalette : 'amber';
+    let currentPalette = PALETTES[currentPaletteName];
     let currentState = 'starting';
     let width = 0;
     let height = 0;
@@ -1501,6 +1611,22 @@
           : (choice.name || choice.id);
         select.append(option);
       });
+    }
+
+    function applyUiPalette(name) {
+      currentPaletteName = Object.prototype.hasOwnProperty.call(PALETTES, name) ? name : 'amber';
+      currentPalette = PALETTES[currentPaletteName];
+      document.documentElement.dataset.palette = currentPaletteName;
+      if (paletteSelectEl) paletteSelectEl.value = currentPaletteName;
+      localStorage.setItem('hermes.uiPalette', currentPaletteName);
+    }
+
+    function rgbaColor(rgb, alpha) {
+      return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+    }
+
+    function mixRgb(a, b, amount) {
+      return a.map((value, index) => Math.round(value + ((b[index] - value) * amount)));
     }
 
     function selectedModelLabel(settings = runtimeSettings) {
@@ -2640,24 +2766,25 @@
 
       let cursor = paddingX;
       const y = cssHeight / 2;
+      const tickerColors = currentPalette.ticker;
       for (const token of measuredTokens) {
         if (cursor > cssWidth - paddingX) break;
         if (token.tone === 'hot') {
-          bitmapCtx.fillStyle = 'rgba(255, 244, 216, 0.98)';
+          bitmapCtx.fillStyle = rgbaColor(tickerColors.hot, 0.98);
           bitmapCtx.shadowBlur = 18;
-          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.72)';
+          bitmapCtx.shadowColor = rgbaColor(tickerColors.normal, 0.72);
         } else if (token.tone === 'strong') {
-          bitmapCtx.fillStyle = 'rgba(255, 209, 132, 0.9)';
+          bitmapCtx.fillStyle = rgbaColor(tickerColors.strong, 0.9);
           bitmapCtx.shadowBlur = 10;
-          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.48)';
+          bitmapCtx.shadowColor = rgbaColor(tickerColors.normal, 0.48);
         } else if (token.tone === 'dim') {
-          bitmapCtx.fillStyle = 'rgba(242, 184, 92, 0.42)';
+          bitmapCtx.fillStyle = rgbaColor(tickerColors.dim, 0.42);
           bitmapCtx.shadowBlur = 6;
-          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.3)';
+          bitmapCtx.shadowColor = rgbaColor(tickerColors.normal, 0.3);
         } else {
-          bitmapCtx.fillStyle = 'rgba(242, 184, 92, 0.72)';
+          bitmapCtx.fillStyle = rgbaColor(tickerColors.normal, 0.72);
           bitmapCtx.shadowBlur = 8;
-          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.36)';
+          bitmapCtx.shadowColor = rgbaColor(tickerColors.normal, 0.36);
         }
         bitmapCtx.fillText(token.text, cursor, y);
         cursor += token.width + gap;
@@ -3153,11 +3280,11 @@
       ctx.fillStyle = '#020303';
       ctx.fillRect(0, 0, width, height);
       if (currentState === 'thinking') {
-        ctx.fillStyle = `rgba(242, 184, 92, ${0.035 + 0.02 * Math.sin(now * 0.003)})`;
+        ctx.fillStyle = `rgba(${currentPalette.background.join(', ')}, ${0.035 + 0.02 * Math.sin(now * 0.003)})`;
         ctx.fillRect(0, 0, width, height);
       } else if (currentState === 'speaking') {
         const speechGlow = Math.max(remoteBands.low * 0.55, remoteBands.mid * 0.42, remoteBands.high * 0.34, remoteBands.transient * 0.6);
-        ctx.fillStyle = `rgba(242, 184, 92, ${0.012 + Math.min(0.045, speechGlow * 0.045)})`;
+        ctx.fillStyle = `rgba(${currentPalette.speakingGlow.join(', ')}, ${0.012 + Math.min(0.045, speechGlow * 0.055)})`;
         ctx.fillRect(0, 0, width, height);
       }
     }
@@ -3209,20 +3336,10 @@
               scatter: basePhysics.scatter + speakingEnergy * 0.055,
             }
         : basePhysics;
-      const colorByState = {
-        thinking: [242, 184, 92],
-        speaking: [242, 184, 92],
-        listening: [242, 184, 92],
-        error: [255, 116, 109],
-        disconnected: [126, 199, 255],
-      };
-      let color = colorByState[currentState] || [210, 246, 235];
+      let color = currentPalette.particles[currentState] || currentPalette.particles.default;
       if (speakingMode) {
-        color = [
-          Math.min(255, Math.round(242 + remoteBands.low * 10 + remoteBands.transient * 14)),
-          Math.min(238, Math.round(184 + remoteBands.mid * 44 + remoteBands.high * 22)),
-          Math.min(178, Math.round(92 + remoteBands.high * 64 + remoteBands.transient * 34)),
-        ];
+        const push = Math.min(0.68, (remoteBands.low * 0.16) + (remoteBands.mid * 0.26) + (remoteBands.high * 0.18) + (remoteBands.transient * 0.34));
+        color = mixRgb(currentPalette.particles.speaking, currentPalette.speakingPush, push);
       }
 
       displayAudioLevel += (audioEnergy - displayAudioLevel) * 0.12;
@@ -3813,6 +3930,7 @@
       queueSettingsSave({ model: modelSelectEl.value });
     });
     reasoningSelectEl.addEventListener('change', () => queueSettingsSave({ reasoningEffort: reasoningSelectEl.value }));
+    paletteSelectEl.addEventListener('change', () => applyUiPalette(paletteSelectEl.value));
     ttsSelectEl.addEventListener('change', () => queueSettingsSave({ ttsBackend: ttsSelectEl.value }));
     audioInputSelectEl.addEventListener('change', switchAudioInput);
     audioOutputSelectEl.addEventListener('change', switchAudioOutput);
@@ -3885,6 +4003,7 @@
     }
 
     resize();
+    applyUiPalette(currentPaletteName);
     renderMicModeSetting();
     updateMuteButton();
     requestAnimationFrame(animate);
