@@ -1645,11 +1645,22 @@
 
     async function saveSettings(partial) {
       try {
-        const resp = await fetch('/settings', {
+        let resp = await fetch('/settings', {
           method: 'PATCH',
           headers: setupHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(partial),
         });
+        if (resp.status === 401) {
+          const token = window.prompt('Setup token');
+          if (token && token.trim()) {
+            sessionStorage.setItem('hermes.setupToken', token.trim());
+            resp = await fetch('/settings', {
+              method: 'PATCH',
+              headers: setupHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify(partial),
+            });
+          }
+        }
         if (!resp.ok) throw new Error(await resp.text());
         renderSettings(await resp.json());
         showToast('Settings saved.');
