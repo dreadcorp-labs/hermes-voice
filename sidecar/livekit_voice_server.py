@@ -379,6 +379,7 @@ class Settings:
     hermes_provider: str = ""
     model_choices: list[dict[str, str]] = field(default_factory=lambda: list(DEFAULT_MODEL_CHOICES))
     hermes_reasoning_effort: str = "none"
+    hermes_timeout_seconds: float = 90.0
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
     speech_rms_threshold: int = 420
     silence_seconds: float = 1.05
@@ -458,6 +459,7 @@ class Settings:
                 [*DEFAULT_MODEL_CHOICES, *_parse_model_choices(_env("HERMES_LIVEKIT_MODEL_CHOICES", ""))]
             ),
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
+            hermes_timeout_seconds=float(_env("HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS", "90")),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
             silence_seconds=float(_env("HERMES_LIVEKIT_SILENCE_SECONDS", "1.05")),
@@ -2375,10 +2377,14 @@ class HermesLiveKitVoice:
                 )
             except asyncio.TimeoutError:
                 elapsed = time.monotonic() - turn_start
-                LOG.warning("streaming Hermes voice turn timed out after %.1fs; skipping full-response fallback", elapsed)
+                LOG.warning("streaming Hermes voice turn timed out after %.1fs", elapsed)
                 self.status.last_error = "Hermes voice stream timed out"
-                await self._publish_state("listening", error="Hermes voice stream timed out")
-                return "", {"hermes": elapsed, "timeout": 1.0}
+                await self._publish_state("error", error="Hermes voice stream timed out")
+                spoken_error = self._spoken_hermes_error(asyncio.TimeoutError())
+                timings = {"hermes": elapsed, "hermes_error": 1.0, "timeout": 1.0}
+                speak_timings = await self._speak_reply(spoken_error, turn_start)
+                timings.update(speak_timings)
+                return spoken_error, timings
             except Exception as stream_exc:
                 LOG.warning("streaming Hermes voice turn failed; falling back to full-response path", exc_info=True)
 
@@ -2411,6 +2417,8 @@ class HermesLiveKitVoice:
     def _spoken_hermes_error(self, exc: Exception) -> str:
         message = str(exc)
         model = self.settings.hermes_model.strip() or "the selected model"
+        if isinstance(exc, asyncio.TimeoutError):
+            return "I got stuck waiting on Hermes tools, so I stopped that turn. I am still listening."
         if re.search(r"not found the model|permission denied|model .*not found|404", message, flags=re.I):
             return (
                 f"Hermes rejected {model}. It is either not configured for this Hermes install "
@@ -2434,7 +2442,7 @@ class HermesLiveKitVoice:
             body.get("model"),
             len(transcript),
         )
-        timeout = ClientTimeout(total=180)
+        timeout = ClientTimeout(total=max(10.0, self.settings.hermes_timeout_seconds))
         async with ClientSession(timeout=timeout) as session:
             async with session.post(self.settings.hermes_api_url, headers=headers, json=body) as response:
                 payload = await response.text()
@@ -2566,10 +2574,21 @@ class HermesLiveKitVoice:
                 return "", timings
             try:
                 reply = await producer_task
-            except Exception:
+            except Exception as exc:
+                self.status.last_error = str(exc)[:500] or type(exc).__name__
                 if speak_timings.get("first_audio", 0.0) > 0:
                     timings.update(speak_timings)
-                    return "", timings
+                    fallback = self._spoken_hermes_error(exc)
+                    await self._publish_state("error", error=self.status.last_error)
+                    fallback_timings = await self._speak_reply(fallback, turn_start)
+                    timings["hermes"] = time.monotonic() - hermes_started
+                    timings["hermes_error"] = 1.0
+                    for key, value in fallback_timings.items():
+                        if isinstance(value, (int, float)) and key in {"tts", "tts_chunks", "tts_underruns", "playback"}:
+                            timings[key] = float(timings.get(key, 0.0)) + float(value)
+                        else:
+                            timings[key] = value
+                    return fallback, timings
                 raise
         finally:
             if not producer_task.done():
@@ -2715,7 +2734,7 @@ class HermesLiveKitVoice:
         active_session_id = session_id or self.settings.hermes_session_id
         headers = self._hermes_headers(session_id=active_session_id)
         body = self._hermes_body(transcript, stream=True, voice_affect=voice_affect)
-        timeout = ClientTimeout(total=180)
+        timeout = ClientTimeout(total=max(10.0, self.settings.hermes_timeout_seconds))
         line_buffer = ""
         event_type = "message"
         published_tool_cues: set[str] = set()
