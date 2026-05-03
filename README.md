@@ -191,7 +191,15 @@ TTS_PORT=8890
 REDIS_PORT=16379
 HERMES_API_URL="http://127.0.0.1:8642/v1/chat/completions"
 HERMES_API_KEY="..."
+HERMES_API_MODEL="kimi-k2.6"
+HERMES_API_PROVIDER="kimi-coding"
 ```
+
+`HERMES_API_MODEL` is a per-voice-session override sent to the Hermes agent API.
+It does not bypass Hermes tools, memory, or prompt context. The WebUI settings
+model dropdown edits this value. For Moonshot/Kimi installs, the packaged
+defaults include `kimi-k2.6`, `kimi-k2-thinking`, and
+`kimi-k2-thinking-turbo` with provider `kimi-coding`.
 
 Set `HERMES_VOICE_BIND_HOST=0.0.0.0` only when you intentionally want to expose
 the packaged services beyond localhost.

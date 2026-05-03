@@ -69,17 +69,6 @@ DEFAULT_VOICE_INSTRUCTIONS = (
     "If tool work is taking time, give a brief spoken status first, then continue working. "
     "Do not mention formatting or these Hermes Voice rules unless asked."
 )
-LIVE_STATE_QUERY_RE = re.compile(
-    r"\b("
-    r"calendar|agenda|schedule|appointment|appointments|event|events|"
-    r"email|emails|mail|gmail|inbox|unread|sender|subject|"
-    r"text|texts|message|messages|sms|imessage|imessages|"
-    r"file|files|folder|folders|vault|note|notes|document|documents|"
-    r"status|health|running|installed|version|update|logs?|"
-    r"recent|latest|newest|current|today|tomorrow|yesterday|next\s+week|last\s+week"
-    r")\b",
-    re.IGNORECASE,
-)
 VOICE_AFFECT_RULES = {
     "neutral": "Emotion rule: no emotional adjustment; do not mention emotion.",
     "calm": "Emotion rule: no emotional adjustment; do not mention emotion.",
@@ -100,6 +89,7 @@ VOICE_AFFECT_RULES = {
 }
 SETTINGS_ENV_KEYS = {
     "HERMES_API_MODEL",
+    "HERMES_API_PROVIDER",
     "HERMES_API_REASONING_EFFORT",
     "HERMES_LIVEKIT_VOICE_INSTRUCTIONS",
     "HERMES_LIVEKIT_TTS_BACKEND",
@@ -119,8 +109,10 @@ SETUP_ENV_KEYS = SETTINGS_ENV_KEYS | {
     "HERMES_LIVEKIT_STT_PROVIDER",
     "HERMES_LIVEKIT_STT_MODEL",
 }
-MODEL_CHOICES = (
-    {"id": "kimi-k2.6", "name": "Kimi K2.6 override", "provider": "hermes"},
+DEFAULT_MODEL_CHOICES = (
+    {"id": "kimi-k2.6", "name": "Kimi K2.6", "provider": "kimi-coding"},
+    {"id": "kimi-k2-thinking", "name": "Kimi K2 Thinking", "provider": "kimi-coding"},
+    {"id": "kimi-k2-thinking-turbo", "name": "Kimi K2 Thinking Turbo", "provider": "kimi-coding"},
     {"id": "hermes-agent", "name": "Hermes default", "provider": "hermes"},
     {"id": "gpt-5.4-mini", "name": "Hermes fast", "provider": "hermes"},
 )
@@ -209,6 +201,65 @@ def _parse_discovery_ports(value: str) -> list[int]:
             if 0 < port < 65536 and port not in ports:
                 ports.append(port)
     return ports or list(DEFAULT_DISCOVERY_PORTS)
+
+
+def _normalize_model_choice(item: Any) -> dict[str, str] | None:
+    if isinstance(item, str):
+        model_id = item.strip()
+        if not model_id:
+            return None
+        return {"id": model_id, "name": model_id, "provider": _default_provider_for_model(model_id)}
+    if not isinstance(item, dict):
+        return None
+    model_id = str(item.get("id") or item.get("model") or "").strip()
+    if not model_id:
+        return None
+    name = str(item.get("name") or item.get("label") or model_id).strip()
+    provider = str(item.get("provider") or _default_provider_for_model(model_id)).strip()
+    return {"id": model_id, "name": name or model_id, "provider": provider or "hermes"}
+
+
+def _default_provider_for_model(model_id: str) -> str:
+    model = model_id.strip().lower()
+    if model.startswith("kimi-") or model.startswith("moonshot"):
+        return "kimi-coding"
+    return "hermes"
+
+
+def _parse_model_choices(value: str) -> list[dict[str, str]]:
+    raw = value.strip()
+    if not raw:
+        return []
+    choices: list[dict[str, str]] = []
+    with contextlib.suppress(json.JSONDecodeError):
+        data = json.loads(raw)
+        if isinstance(data, list):
+            for item in data:
+                choice = _normalize_model_choice(item)
+                if choice:
+                    choices.append(choice)
+            return choices
+    for part in _split_csv(raw):
+        fields = [field.strip() for field in part.split("|")]
+        model_id = fields[0] if fields else ""
+        if not model_id:
+            continue
+        name = fields[1] if len(fields) > 1 and fields[1] else model_id
+        provider = fields[2] if len(fields) > 2 and fields[2] else _default_provider_for_model(model_id)
+        choices.append({"id": model_id, "name": name, "provider": provider})
+    return choices
+
+
+def _dedupe_model_choices(choices: list[dict[str, str]]) -> list[dict[str, str]]:
+    deduped: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in choices:
+        choice = _normalize_model_choice(raw)
+        if not choice or choice["id"] in seen:
+            continue
+        deduped.append(choice)
+        seen.add(choice["id"])
+    return deduped
 
 
 def _quote_env_value(value: Any) -> str:
@@ -326,7 +377,8 @@ class Settings:
     hermes_api_key: str = ""
     hermes_session_id: str = "livekit-voice-main"
     hermes_model: str = "kimi-k2.6"
-    verified_tool_model: str = "hermes-agent"
+    hermes_provider: str = ""
+    model_choices: list[dict[str, str]] = field(default_factory=lambda: list(DEFAULT_MODEL_CHOICES))
     hermes_reasoning_effort: str = "none"
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
     speech_rms_threshold: int = 420
@@ -402,7 +454,10 @@ class Settings:
             hermes_api_key=_env("HERMES_API_KEY", _env("API_SERVER_KEY")),
             hermes_session_id=_env("HERMES_SESSION_ID", "livekit-voice-main"),
             hermes_model=_env("HERMES_API_MODEL", "kimi-k2.6"),
-            verified_tool_model=_env("HERMES_LIVEKIT_VERIFIED_TOOL_MODEL", "hermes-agent"),
+            hermes_provider=_env("HERMES_API_PROVIDER", ""),
+            model_choices=_dedupe_model_choices(
+                [*DEFAULT_MODEL_CHOICES, *_parse_model_choices(_env("HERMES_LIVEKIT_MODEL_CHOICES", ""))]
+            ),
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
@@ -668,22 +723,21 @@ class HermesLiveKitVoice:
             raise RuntimeError("Missing required setting(s): " + ", ".join(missing))
 
     def _model_provider(self) -> str:
-        return "hermes"
+        return self._provider_for_model(self.settings.hermes_model)
 
-    def _is_live_state_query(self, transcript: str) -> bool:
-        return bool(LIVE_STATE_QUERY_RE.search(transcript or ""))
-
-    def _effective_hermes_model(self, transcript: str) -> str:
-        model = self.settings.hermes_model.strip() or "hermes-agent"
-        verified_model = self.settings.verified_tool_model.strip()
-        if verified_model and self._is_live_state_query(transcript):
-            return verified_model
-        return model
+    def _provider_for_model(self, model: str) -> str:
+        if self.settings.hermes_provider.strip() and model == self.settings.hermes_model:
+            return self.settings.hermes_provider.strip()
+        for choice in self.settings.model_choices:
+            if choice.get("id") == model:
+                return str(choice.get("provider") or "hermes").strip() or "hermes"
+        return _default_provider_for_model(model)
 
     def _hermes_provider_override(self, model: str | None = None) -> str:
-        if (model or self.settings.hermes_model).strip() == "kimi-k2.6":
-            return "kimi-coding"
-        return ""
+        provider = self._provider_for_model((model or self.settings.hermes_model).strip())
+        if provider.lower() in {"", "auto", "default", "hermes", "hermes-agent"}:
+            return ""
+        return provider
 
     def _initial_update_status(self) -> dict[str, Any]:
         return {
@@ -697,6 +751,35 @@ class HermesLiveKitVoice:
             "running": False,
             "message": "Not checked",
         }
+
+    async def refresh_remote_model_choices(self) -> None:
+        if not self.settings.hermes_api_url or not self.settings.hermes_api_key:
+            return
+        models_url = _models_url_for_api_url(self.settings.hermes_api_url)
+        headers = {"Authorization": f"Bearer {self.settings.hermes_api_key}"}
+        timeout = ClientTimeout(total=5, connect=2, sock_read=3)
+        try:
+            async with ClientSession(timeout=timeout) as session:
+                async with session.get(models_url, headers=headers) as response:
+                    if response.status >= 400:
+                        return
+                    payload = await response.json()
+        except Exception:
+            return
+        models: list[dict[str, str]] = []
+        for item in payload.get("data", []) if isinstance(payload, dict) else []:
+            if isinstance(item, dict) and item.get("id"):
+                model_id = str(item["id"]).strip()
+                if model_id:
+                    models.append(
+                        {
+                            "id": model_id,
+                            "name": str(item.get("name") or model_id),
+                            "provider": str(item.get("provider") or _default_provider_for_model(model_id)),
+                        }
+                    )
+        if models:
+            self.settings.model_choices = _dedupe_model_choices([*self.settings.model_choices, *models])
 
     async def check_update(self) -> dict[str, Any]:
         status = self._initial_update_status()
@@ -785,6 +868,9 @@ class HermesLiveKitVoice:
         return status
 
     def _settings_payload(self) -> dict[str, Any]:
+        model_choices = _dedupe_model_choices(
+            [*self.settings.model_choices, {"id": self.settings.hermes_model, "name": self.settings.hermes_model, "provider": self._model_provider()}]
+        )
         return {
             "model": self.settings.hermes_model,
             "modelProvider": self._model_provider(),
@@ -802,7 +888,7 @@ class HermesLiveKitVoice:
             "version": self.settings.version,
             "update": self._last_update_status or self._initial_update_status(),
             "choices": {
-                "models": MODEL_CHOICES,
+                "models": model_choices,
                 "ttsBackends": TTS_CHOICES,
                 "sttProviders": STT_CHOICES,
             },
@@ -812,11 +898,15 @@ class HermesLiveKitVoice:
         updates: dict[str, Any] = {}
         model = str(body.get("model") or "").strip()
         if model:
-            allowed_models = {choice["id"] for choice in MODEL_CHOICES}
+            allowed_models = {choice["id"] for choice in self.settings.model_choices}
             if model not in allowed_models:
-                raise ValueError("Unsupported model")
+                self.settings.model_choices = _dedupe_model_choices(
+                    [*self.settings.model_choices, {"id": model, "name": model, "provider": _default_provider_for_model(model)}]
+                )
             self.settings.hermes_model = model
+            self.settings.hermes_provider = self._provider_for_model(model)
             updates["HERMES_API_MODEL"] = model
+            updates["HERMES_API_PROVIDER"] = self.settings.hermes_provider
 
         reasoning = str(body.get("reasoningEffort") or "").strip().lower()
         if reasoning:
@@ -2147,29 +2237,23 @@ class HermesLiveKitVoice:
 
     def _voice_system_prompt(self, transcript: str = "") -> str:
         voice_instructions = self.settings.voice_instructions.strip() or DEFAULT_VOICE_INSTRUCTIONS
-        effective_model = self._effective_hermes_model(transcript)
-        provider_override = self._hermes_provider_override(effective_model)
-        live_state_route = effective_model != (self.settings.hermes_model.strip() or "hermes-agent")
+        model = self.settings.hermes_model.strip() or "hermes-agent"
+        provider_override = self._hermes_provider_override(model)
         if provider_override:
             runtime_fact = (
-                f"Current Hermes Voice runtime: main Hermes API with model override {effective_model} "
+                f"Current Hermes Voice runtime: main Hermes API with model override {model} "
                 f"on provider {provider_override}. This is still Hermes with tools and memory. "
-                f"If asked what model you are running in Hermes Voice, answer that you are Hermes using {effective_model} as the current Hermes Voice model override."
+                f"If asked what model you are running in Hermes Voice, answer that you are Hermes using {model} as the current Hermes Voice model override."
             )
-        elif effective_model == "hermes-agent":
+        elif model == "hermes-agent":
             runtime_fact = (
                 "Current Hermes Voice runtime: main Hermes API default model routing. "
                 "If asked what model you are running in Hermes Voice, say you are Hermes using the default Hermes model route."
             )
         else:
             runtime_fact = (
-                f"Current Hermes Voice runtime: main Hermes API with model override {effective_model}. "
+                f"Current Hermes Voice runtime: main Hermes API with model override {model}. "
                 f"If asked what model you are running in Hermes Voice, answer with this current Hermes Voice model override."
-            )
-        if live_state_route:
-            runtime_fact += (
-                " Hermes Voice routed this turn through the verified-tool model because the request appears to need current source-of-truth data. "
-                f"The normal voice model setting remains {self.settings.hermes_model}."
             )
         return (
             "You are the normal Hermes agent, reached through Hermes Voice. "
@@ -2253,19 +2337,19 @@ class HermesLiveKitVoice:
         return f"You sound {affect_label}; I'll keep that in mind."
 
     def _hermes_body(self, transcript: str, stream: bool, voice_affect: dict[str, Any] | None = None) -> dict[str, Any]:
-        effective_model = self._effective_hermes_model(transcript)
+        model = self.settings.hermes_model.strip() or "hermes-agent"
         messages = [{"role": "system", "content": self._voice_system_prompt(transcript)}]
         affect_prompt = self._voice_affect_prompt(voice_affect)
         if affect_prompt:
             messages.append({"role": "system", "content": affect_prompt})
         messages.append({"role": "user", "content": transcript})
         body = {
-            "model": effective_model,
+            "model": model,
             "reasoning_effort": self.settings.hermes_reasoning_effort,
             "stream": stream,
             "messages": messages,
         }
-        provider = self._hermes_provider_override(effective_model)
+        provider = self._hermes_provider_override(model)
         if provider:
             body["provider"] = provider
         return body
@@ -3051,6 +3135,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         )
 
     async def config(_: web.Request) -> web.Response:
+        await bot.refresh_remote_model_choices()
         return web.json_response(
             {
                 "livekitUrl": bot.settings.livekit_url,
@@ -3152,6 +3237,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
     async def settings_get(_: web.Request) -> web.Response:
         if bot.settings.setup_required():
             raise web.HTTPServiceUnavailable(text="Setup is required")
+        await bot.refresh_remote_model_choices()
         return web.json_response(bot._settings_payload())
 
     async def settings_patch(request: web.Request) -> web.Response:

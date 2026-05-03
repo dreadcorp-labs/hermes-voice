@@ -1393,7 +1393,9 @@
       choices.forEach((choice) => {
         const option = document.createElement('option');
         option.value = choice.id;
-        option.textContent = choice.name || choice.id;
+        option.textContent = choice.provider && choice.provider !== 'hermes'
+          ? `${choice.name || choice.id} (${choice.provider})`
+          : (choice.name || choice.id);
         select.append(option);
       });
     }
