@@ -696,6 +696,35 @@
       border: 1px solid var(--line);
     }
 
+    .update-card {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .update-card-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .update-status {
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .update-command {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+      word-break: break-all;
+    }
+
     .entry {
       display: grid;
       grid-template-columns: 34px minmax(0, 1fr);
@@ -1068,6 +1097,15 @@
         <span>Voice behavior</span>
         <span aria-hidden="true">&gt;</span>
       </button>
+      <div class="update-card">
+        <div class="update-card-title">App update</div>
+        <div id="updateStatus" class="update-status">Version unknown.</div>
+        <div class="voice-actions">
+          <button id="checkUpdate" class="small-action" type="button">Check</button>
+          <button id="runUpdate" class="small-action" type="button" disabled>Run update</button>
+        </div>
+        <div id="updateCommand" class="update-command"></div>
+      </div>
     </div>
     <div id="voiceBehaviorPage" class="settings-page" aria-hidden="true">
       <div class="panel-head">
@@ -1138,6 +1176,10 @@
     const voiceInstructionsInputEl = document.getElementById('voiceInstructionsInput');
     const saveVoiceInstructionsBtn = document.getElementById('saveVoiceInstructions');
     const resetVoiceInstructionsBtn = document.getElementById('resetVoiceInstructions');
+    const updateStatusEl = document.getElementById('updateStatus');
+    const updateCommandEl = document.getElementById('updateCommand');
+    const checkUpdateBtn = document.getElementById('checkUpdate');
+    const runUpdateBtn = document.getElementById('runUpdate');
     const toastEl = document.getElementById('toast');
     const dockEl = document.querySelector('.dock');
 
@@ -1523,7 +1565,70 @@
       sttModelInputEl.value = settings.sttModel || '';
       voiceInstructionsInputEl.value = settings.voiceInstructions || settings.defaultVoiceInstructions || '';
       emotionToggleEl.checked = Boolean(settings.emotionRecognition);
+      renderUpdateStatus(settings.update || { current: settings.version || 'dev' });
       settingsHydrating = false;
+    }
+
+    function renderUpdateStatus(update) {
+      const current = update.current || runtimeSettings?.version || 'dev';
+      const latest = update.latest || '';
+      const message = update.message || 'Not checked';
+      const pieces = [`Current: ${current}`];
+      if (latest) pieces.push(`Latest: ${latest}`);
+      pieces.push(message);
+      updateStatusEl.textContent = pieces.join(' | ');
+      runUpdateBtn.disabled = !update.runAvailable || update.running;
+      checkUpdateBtn.disabled = Boolean(update.running);
+      if (update.displayCommand) {
+        updateCommandEl.textContent = update.runAvailable
+          ? 'In-app update is available for this install.'
+          : `Manual update: ${update.displayCommand}`;
+      } else {
+        updateCommandEl.textContent = '';
+      }
+    }
+
+    async function checkForUpdate() {
+      checkUpdateBtn.disabled = true;
+      updateStatusEl.textContent = 'Checking for updates...';
+      try {
+        const resp = await fetch('/update', {
+          method: 'GET',
+          headers: setupHeaders(),
+          cache: 'no-store',
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const update = await resp.json();
+        renderUpdateStatus(update);
+        showToast(update.message || 'Update check complete.');
+      } catch (err) {
+        showToast('Update check failed.');
+        updateStatusEl.textContent = err.message || String(err);
+      } finally {
+        checkUpdateBtn.disabled = false;
+      }
+    }
+
+    async function runUpdate() {
+      runUpdateBtn.disabled = true;
+      checkUpdateBtn.disabled = true;
+      updateStatusEl.textContent = 'Running update...';
+      try {
+        const resp = await fetch('/update', {
+          method: 'POST',
+          headers: setupHeaders({ 'Content-Type': 'application/json' }),
+          body: '{}',
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const update = await resp.json();
+        renderUpdateStatus(update);
+        showToast(update.message || 'Update finished.');
+      } catch (err) {
+        showToast('Update did not run.');
+        updateStatusEl.textContent = err.message || String(err);
+      } finally {
+        checkUpdateBtn.disabled = false;
+      }
     }
 
     async function loadSettings() {
@@ -3575,6 +3680,8 @@
     desktopShortcutSelectEl.addEventListener('change', saveDesktopShortcut);
     sttSelectEl.addEventListener('change', () => queueSettingsSave({ sttProvider: sttSelectEl.value }));
     sttModelInputEl.addEventListener('change', () => queueSettingsSave({ sttModel: sttModelInputEl.value }));
+    checkUpdateBtn.addEventListener('click', checkForUpdate);
+    runUpdateBtn.addEventListener('click', runUpdate);
     saveVoiceInstructionsBtn.addEventListener('click', () => saveSettings({
       voiceInstructions: voiceInstructionsInputEl.value,
     }));

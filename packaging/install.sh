@@ -38,6 +38,11 @@ if [ ! -f "$source_dir/sidecar/Dockerfile" ] || [ ! -f "$source_dir/tts/Dockerfi
   fi
 fi
 
+if command -v git >/dev/null 2>&1 && [ -d "$source_dir/.git" ]; then
+  HERMES_VOICE_VERSION="${HERMES_VOICE_VERSION:-$(git -C "$source_dir" rev-parse --short HEAD 2>/dev/null || true)}"
+fi
+HERMES_VOICE_VERSION="${HERMES_VOICE_VERSION:-dev}"
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install Docker, then rerun this installer." >&2
   exit 1
@@ -154,6 +159,7 @@ fi
 cat > "$INSTALL_DIR/.env" <<EOF
 HERMES_VOICE_COMPOSE_PROJECT=$COMPOSE_PROJECT_NAME
 HERMES_VOICE_SOURCE_DIR=$source_dir
+HERMES_VOICE_VERSION=$HERMES_VOICE_VERSION
 HERMES_VOICE_PUBLIC_HOST=$PUBLIC_HOST
 HERMES_VOICE_BIND_HOST=$BIND_HOST
 HERMES_VOICE_PACKAGE_MODE=$PACKAGE_MODE
@@ -199,6 +205,7 @@ LIVEKIT_API_KEY=$LIVEKIT_API_KEY
 LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 LIVEKIT_ROOM=hermes-voice
 HERMES_SETUP_TOKEN=$HERMES_SETUP_TOKEN
+HERMES_VOICE_VERSION=$HERMES_VOICE_VERSION
 
 HERMES_LIVEKIT_VOICE_HOST=$SIDECAR_BIND_HOST
 HERMES_LIVEKIT_VOICE_PORT=$SIDECAR_PORT

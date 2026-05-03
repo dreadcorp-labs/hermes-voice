@@ -58,10 +58,12 @@ TOOL_EMOJI_FALLBACKS = (
     (("music", "spotify", "playlist"), "🎵"),
 )
 PACKAGED_EMOTION_MODEL = "Dpngtm/wav2vec2-emotion-recognition"
+DEFAULT_UPDATE_COMMAND = "curl -fsSL https://raw.githubusercontent.com/dreadcorp-labs/hermes-voice/main/packaging/bootstrap.sh | bash"
 DEFAULT_VOICE_INSTRUCTIONS = (
     "This request came through Hermes Voice. Use the normal Hermes tools, memory, skills, files, "
     "terminal, calendar, email, web, and operational context; do not treat Hermes Voice as reduced capability. "
     "For live/current-state questions, check the current source of truth first. "
+    "For calendar questions, use the configured calendar tools before answering. "
     "Answer as speech for TTS: short conversational sentences, no markdown, no headings, no bullet lists, no tables, "
     "no code blocks, no URLs unless necessary, and natural spoken dates and times. "
     "If tool work is taking time, give a brief spoken status first, then continue working. "
@@ -355,6 +357,10 @@ class Settings:
     discovery_cidrs: list[str] = field(default_factory=list)
     discovery_ports: list[int] = field(default_factory=lambda: list(DEFAULT_DISCOVERY_PORTS))
     discovery_max_hosts: int = 512
+    version: str = "dev"
+    update_repo_api_url: str = "https://api.github.com/repos/dreadcorp-labs/hermes-voice/commits/main"
+    update_command: str = ""
+    update_display_command: str = DEFAULT_UPDATE_COMMAND
 
     @classmethod
     def load(cls, env_path: Path) -> "Settings":
@@ -439,6 +445,13 @@ class Settings:
             discovery_cidrs=_split_csv(_env("HERMES_DISCOVERY_CIDRS", "")),
             discovery_ports=_parse_discovery_ports(_env("HERMES_DISCOVERY_PORTS", ",".join(str(port) for port in DEFAULT_DISCOVERY_PORTS))),
             discovery_max_hosts=int(_env("HERMES_DISCOVERY_MAX_HOSTS", "512")),
+            version=_env("HERMES_VOICE_VERSION", "dev"),
+            update_repo_api_url=_env(
+                "HERMES_VOICE_UPDATE_REPO_API_URL",
+                "https://api.github.com/repos/dreadcorp-labs/hermes-voice/commits/main",
+            ),
+            update_command=_env("HERMES_VOICE_UPDATE_COMMAND", ""),
+            update_display_command=_env("HERMES_VOICE_UPDATE_DISPLAY_COMMAND", DEFAULT_UPDATE_COMMAND),
         )
 
     def missing_required_settings(self) -> list[str]:
@@ -513,6 +526,7 @@ class HermesLiveKitVoice:
         self._emotion2vec_proc: asyncio.subprocess.Process | None = None
         self._local_whisper_model: Any | None = None
         self._local_whisper_model_name = ""
+        self._last_update_status: dict[str, Any] | None = None
 
         hermes_agent = Path.home() / ".hermes/hermes-agent"
         if str(hermes_agent) not in sys.path:
@@ -648,6 +662,105 @@ class HermesLiveKitVoice:
             return "kimi-coding"
         return ""
 
+    def _initial_update_status(self) -> dict[str, Any]:
+        return {
+            "current": self.settings.version,
+            "latest": "",
+            "latestFull": "",
+            "available": False,
+            "checkedAt": 0,
+            "runAvailable": bool(self.settings.update_command.strip()),
+            "displayCommand": self.settings.update_display_command,
+            "running": False,
+            "message": "Not checked",
+        }
+
+    async def check_update(self) -> dict[str, Any]:
+        status = self._initial_update_status()
+        current = self.settings.version.strip()
+        timeout = ClientTimeout(total=10, connect=3, sock_read=5)
+        try:
+            async with ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    self.settings.update_repo_api_url,
+                    headers={"Accept": "application/vnd.github+json", "User-Agent": "hermes-voice"},
+                ) as response:
+                    text = await response.text()
+                    if response.status >= 400:
+                        raise RuntimeError(f"update check HTTP {response.status}: {text[:240]}")
+                    payload = json.loads(text)
+        except Exception as exc:
+            status.update(
+                {
+                    "checkedAt": time.time(),
+                    "message": f"Update check failed: {type(exc).__name__}",
+                    "error": str(exc)[:300],
+                }
+            )
+            self._last_update_status = status
+            return status
+
+        latest = str(payload.get("sha") or "").strip()
+        latest_short = latest[:7] if latest else ""
+        current_short = current[:7] if current and current != "dev" else current
+        available = bool(latest_short and current_short and latest_short != current_short)
+        status.update(
+            {
+                "current": current_short,
+                "latest": latest_short,
+                "latestFull": latest,
+                "available": available,
+                "checkedAt": time.time(),
+                "message": "Update available" if available else "Up to date",
+            }
+        )
+        self._last_update_status = status
+        return status
+
+    async def run_update(self) -> dict[str, Any]:
+        command = self.settings.update_command.strip()
+        if not command:
+            raise web.HTTPServiceUnavailable(text="In-app update is not configured for this install")
+        status = dict(self._last_update_status or self._initial_update_status())
+        status.update({"running": True, "message": "Update running", "checkedAt": time.time()})
+        self._last_update_status = status
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                env={**os.environ, "HERMES_VOICE_UPDATE_FROM_WEBUI": "1"},
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=900)
+        except asyncio.TimeoutError as exc:
+            status.update({"running": False, "ok": False, "message": "Update timed out", "error": str(exc)})
+            self._last_update_status = status
+            return status
+        except Exception as exc:
+            status.update(
+                {
+                    "running": False,
+                    "ok": False,
+                    "message": f"Update failed: {type(exc).__name__}",
+                    "error": str(exc)[:500],
+                }
+            )
+            self._last_update_status = status
+            return status
+
+        output = (stdout or b"").decode("utf-8", errors="replace")
+        status.update(
+            {
+                "running": False,
+                "ok": proc.returncode == 0,
+                "message": "Update finished" if proc.returncode == 0 else f"Update failed with exit {proc.returncode}",
+                "exitCode": proc.returncode,
+                "outputTail": output[-4000:],
+            }
+        )
+        self._last_update_status = status
+        return status
+
     def _settings_payload(self) -> dict[str, Any]:
         return {
             "model": self.settings.hermes_model,
@@ -663,6 +776,8 @@ class HermesLiveKitVoice:
             "emotionRecognition": self.settings.emotion2vec_enabled,
             "emotionAvailable": self._emotion2vec_available(),
             "kimiApiAvailable": bool(self.settings.kimi_api_key),
+            "version": self.settings.version,
+            "update": self._last_update_status or self._initial_update_status(),
             "choices": {
                 "models": MODEL_CHOICES,
                 "ttsBackends": TTS_CHOICES,
@@ -3017,6 +3132,14 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
             raise web.HTTPInternalServerError(text=f"Could not persist settings: {exc}")
         return web.json_response(payload)
 
+    async def update_check(request: web.Request) -> web.Response:
+        bot.require_setup_token(request)
+        return web.json_response(await bot.check_update())
+
+    async def update_run(request: web.Request) -> web.Response:
+        bot.require_setup_token(request)
+        return web.json_response(await bot.run_update())
+
     async def token(request: web.Request) -> web.Response:
         if bot.settings.setup_required():
             raise web.HTTPServiceUnavailable(text="Setup is required")
@@ -3065,6 +3188,8 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
     app.router.add_post("/setup", setup_save)
     app.router.add_get("/settings", settings_get)
     app.router.add_patch("/settings", settings_patch)
+    app.router.add_get("/update", update_check)
+    app.router.add_post("/update", update_run)
     app.router.add_post("/token", token)
     app.router.add_post("/text-turn", text_turn)
     app.router.add_static("/static", bot.settings.static_dir, show_index=False)

@@ -12,6 +12,7 @@ services:
     environment:
       CONFIG_DIR: /config
       DATA_DIR: /data
+      HERMES_VOICE_VERSION: ${HERMES_VOICE_VERSION:-dev}
       WEBUI_PORT: ${WEBUI_PORT:-8765}
       LIVEKIT_PORT: ${LIVEKIT_PORT:-7880}
       LIVEKIT_RTC_TCP_PORT: ${LIVEKIT_RTC_TCP_PORT:-7881}
