@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 INSTALL_DIR="${HERMES_VOICE_INSTALL_DIR:-$HOME/.hermes-voice}"
 PACKAGE_MODE="${HERMES_VOICE_PACKAGE_MODE:-single}"
@@ -11,6 +12,7 @@ LIVEKIT_RTC_UDP_END="${LIVEKIT_RTC_UDP_END:-50100}"
 REDIS_PORT="${REDIS_PORT:-16379}"
 TTS_PORT="${TTS_PORT:-8890}"
 PUBLIC_HOST="${HERMES_VOICE_PUBLIC_HOST:-localhost}"
+BIND_HOST="${HERMES_VOICE_BIND_HOST:-127.0.0.1}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_dir="$(cd "$script_dir/.." && pwd)"
@@ -78,8 +80,13 @@ detect_lan_cidrs() {
   fi
 }
 
-LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-hermes_livekit}"
+LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(secret_hex)}"
+if [ "$LIVEKIT_API_KEY" = "hermes_livekit" ]; then
+  echo "LIVEKIT_API_KEY=hermes_livekit is not allowed. Use a random key or omit it so the installer can generate one." >&2
+  exit 1
+fi
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(secret_hex)}"
+HERMES_SETUP_TOKEN="${HERMES_SETUP_TOKEN:-$(secret_hex)}"
 HERMES_DISCOVERY_CIDRS="${HERMES_DISCOVERY_CIDRS:-$(detect_lan_cidrs)}"
 HERMES_DISCOVERY_PORTS="${HERMES_DISCOVERY_PORTS:-8642,8000,8080,1235}"
 if [ -z "${HERMES_API_URL:-}" ]; then
@@ -108,6 +115,7 @@ if [ "$PACKAGE_MODE" = "single" ]; then
   LIVEKIT_CONFIG_REDIS="127.0.0.1:$REDIS_PORT"
   LIVEKIT_CONFIG_RTC_TCP_PORT="$LIVEKIT_RTC_TCP_PORT"
   SIDECAR_PORT="$WEBUI_PORT"
+  SIDECAR_BIND_HOST="$BIND_HOST"
   SIDECAR_STATIC_DIR="/app/sidecar/static"
   TTS_INTERNAL_URL="http://127.0.0.1:$TTS_PORT/v1/audio/speech"
   EMOTION_HELPER="/app/sidecar/wav2vec_emotion_analyze.py"
@@ -118,6 +126,7 @@ else
   LIVEKIT_CONFIG_REDIS="redis:6379"
   LIVEKIT_CONFIG_RTC_TCP_PORT="7881"
   SIDECAR_PORT="8765"
+  SIDECAR_BIND_HOST="0.0.0.0"
   SIDECAR_STATIC_DIR="/app/static"
   TTS_INTERNAL_URL="http://tts:8889/v1/audio/speech"
   EMOTION_HELPER="/app/wav2vec_emotion_analyze.py"
@@ -128,6 +137,7 @@ cat > "$INSTALL_DIR/.env" <<EOF
 HERMES_VOICE_COMPOSE_PROJECT=$COMPOSE_PROJECT_NAME
 HERMES_VOICE_SOURCE_DIR=$source_dir
 HERMES_VOICE_PUBLIC_HOST=$PUBLIC_HOST
+HERMES_VOICE_BIND_HOST=$BIND_HOST
 HERMES_VOICE_PACKAGE_MODE=$PACKAGE_MODE
 WEBUI_PORT=$WEBUI_PORT
 LIVEKIT_PORT=$LIVEKIT_PORT
@@ -170,8 +180,9 @@ LIVEKIT_PUBLIC_URL=$LIVEKIT_PUBLIC_URL
 LIVEKIT_API_KEY=$LIVEKIT_API_KEY
 LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 LIVEKIT_ROOM=hermes-voice
+HERMES_SETUP_TOKEN=$HERMES_SETUP_TOKEN
 
-HERMES_LIVEKIT_VOICE_HOST=0.0.0.0
+HERMES_LIVEKIT_VOICE_HOST=$SIDECAR_BIND_HOST
 HERMES_LIVEKIT_VOICE_PORT=$SIDECAR_PORT
 HERMES_LIVEKIT_STATIC_DIR=$SIDECAR_STATIC_DIR
 
@@ -205,6 +216,8 @@ HERMES_EMOTION2VEC_CACHE_DIR=/data/emotion
 HERMES_EMOTION2VEC_TIMEOUT_SECONDS=8.0
 EOF
 
+chmod 600 "$INSTALL_DIR/.env" "$INSTALL_DIR/config/livekit.yaml" "$INSTALL_DIR/config/hermes-voice.env"
+
 if command -v chown >/dev/null 2>&1; then
   chown -R 1000:1000 "$INSTALL_DIR/config" 2>/dev/null || true
 fi
@@ -222,7 +235,10 @@ Hermes Voice is starting.
 Web UI:
   $WEBUI_URL
 
-If you did not provide HERMES_API_KEY, open the Web UI and complete first-run setup.
+First-run setup:
+  $WEBUI_URL/setup?setupToken=$HERMES_SETUP_TOKEN
+
+If you did not provide HERMES_API_KEY, open the setup URL above and complete first-run setup.
 
 Manage:
   cd "$INSTALL_DIR"

@@ -56,7 +56,9 @@ http://localhost:8765/
 
 If no API key is provided, Hermes Voice starts in setup mode. The setup page can
 accept a full chat-completions URL or a simple `host:port`, and it can scan
-configured LAN ranges for likely Hermes endpoints.
+configured private LAN ranges for likely Hermes endpoints. For a fresh packaged
+install, use the setup URL printed by the installer; it includes a per-install
+setup token used for settings changes.
 
 Common override:
 
@@ -173,6 +175,7 @@ Useful environment variables:
 ```bash
 HERMES_VOICE_INSTALL_DIR="$HOME/.hermes-voice"
 HERMES_VOICE_PUBLIC_HOST="localhost"
+HERMES_VOICE_BIND_HOST="127.0.0.1"
 WEBUI_PORT=8765
 LIVEKIT_PORT=7880
 TTS_PORT=8890
@@ -180,6 +183,9 @@ REDIS_PORT=16379
 HERMES_API_URL="http://127.0.0.1:8642/v1/chat/completions"
 HERMES_API_KEY="..."
 ```
+
+Set `HERMES_VOICE_BIND_HOST=0.0.0.0` only when you intentionally want to expose
+the packaged services beyond localhost.
 
 Set `HERMES_VOICE_PACKAGE_MODE=multi` to use the older multi-container layout
 with separate Redis, LiveKit, sidecar, and TTS services.

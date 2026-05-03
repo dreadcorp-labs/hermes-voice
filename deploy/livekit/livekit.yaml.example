@@ -13,7 +13,7 @@ rtc:
 prometheus_port: 6789
 
 keys:
-  hermes_livekit: replace-me
+  replace-with-random-livekit-key: replace-with-random-livekit-secret
 
 logging:
   level: info

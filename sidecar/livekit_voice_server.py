@@ -6,6 +6,8 @@ import asyncio
 import audioop
 import base64
 import contextlib
+import datetime
+import hmac
 import ipaddress
 import io
 import json
@@ -98,6 +100,7 @@ SETUP_ENV_KEYS = SETTINGS_ENV_KEYS | {
     "HERMES_API_URL",
     "HERMES_API_KEY",
     "API_SERVER_KEY",
+    "HERMES_SETUP_TOKEN",
     "LIVEKIT_PUBLIC_URL",
     "HERMES_LIVEKIT_TTS_URL",
     "HERMES_LIVEKIT_STT_PROVIDER",
@@ -225,6 +228,8 @@ def _write_env_updates(path: Path, updates: dict[str, Any], allowed_keys: set[st
             next_lines.append(f"{key}={_quote_env_value(value)}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(next_lines).rstrip() + "\n")
+    with contextlib.suppress(OSError):
+        path.chmod(0o600)
 
 
 def _env(name: str, default: str = "") -> str:
@@ -301,6 +306,7 @@ class Settings:
     livekit_api_key: str = ""
     livekit_api_secret: str = ""
     livekit_room: str = "hermes-voice"
+    setup_token: str = ""
     agent_identity: str = "hermes-livekit-agent"
     agent_name: str = "Hermes Voice"
     hermes_api_url: str = "http://127.0.0.1:8642/v1/chat/completions"
@@ -371,6 +377,7 @@ class Settings:
             livekit_api_key=_env("LIVEKIT_API_KEY"),
             livekit_api_secret=_env("LIVEKIT_API_SECRET"),
             livekit_room=_env("LIVEKIT_ROOM", "hermes-voice"),
+            setup_token=_env("HERMES_SETUP_TOKEN"),
             agent_identity=_env("HERMES_LIVEKIT_AGENT_IDENTITY", "hermes-livekit-agent"),
             agent_name=_env("HERMES_LIVEKIT_AGENT_NAME", "Hermes Voice"),
             hermes_api_url=_normalize_hermes_api_url(_env("HERMES_API_URL", "http://127.0.0.1:8642/v1/chat/completions")),
@@ -511,23 +518,62 @@ class HermesLiveKitVoice:
         if str(hermes_agent) not in sys.path:
             sys.path.insert(0, str(hermes_agent))
 
-    def make_token(self, identity: str, name: str, room: str | None = None) -> str:
+    def make_token(self, identity: str, name: str, room: str | None = None, *, role: str = "user") -> str:
         target_room = room or self.settings.livekit_room
-        return (
+        if target_room != self.settings.livekit_room:
+            raise ValueError("Invalid LiveKit room")
+        if not re.fullmatch(r"[A-Za-z0-9_.:@-]{1,96}", identity):
+            raise ValueError("Invalid LiveKit identity")
+        token = (
             api.AccessToken(self.settings.livekit_api_key, self.settings.livekit_api_secret)
-            .with_identity(identity)
-            .with_name(name)
-            .with_grants(
-                api.VideoGrants(
-                    room_join=True,
-                    room=target_room,
-                    can_publish=True,
-                    can_subscribe=True,
-                    can_publish_data=True,
-                    can_update_own_metadata=True,
-                )
-            )
-            .to_jwt()
+            .with_identity(identity[:96])
+            .with_name(name[:80])
+        )
+        if hasattr(token, "with_ttl"):
+            try:
+                ttl_token = token.with_ttl(datetime.timedelta(hours=1))
+            except TypeError:
+                ttl_token = token.with_ttl(3600)
+            if ttl_token is not None:
+                token = ttl_token
+        grants = api.VideoGrants(
+            room_join=True,
+            room=target_room,
+            can_publish=True,
+            can_subscribe=True,
+            can_publish_data=True,
+            can_update_own_metadata=(role == "agent"),
+        )
+        return token.with_grants(grants).to_jwt()
+
+    @staticmethod
+    def _setup_auth_token_from_request(request: web.Request) -> str:
+        auth = request.headers.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+        return (
+            request.headers.get("X-Hermes-Setup-Token", "")
+            or request.query.get("setupToken", "")
+            or request.query.get("setup_token", "")
+        ).strip()
+
+    def require_setup_token(self, request: web.Request) -> None:
+        expected = self.settings.setup_token.strip()
+        if not expected:
+            return
+        provided = self._setup_auth_token_from_request(request)
+        if not provided or not hmac.compare_digest(provided, expected):
+            raise web.HTTPUnauthorized(text="Missing or invalid setup token")
+
+    def setup_token_required(self) -> bool:
+        return bool(self.settings.setup_token.strip())
+
+    @staticmethod
+    def _private_discovery_network(network: ipaddress.IPv4Network) -> bool:
+        return (
+            network.is_private
+            or network.is_loopback
+            or network.is_link_local
         )
 
     async def start(self) -> None:
@@ -560,7 +606,7 @@ class HermesLiveKitVoice:
         def _on_data_received(packet):
             self._handle_data_packet(packet)
 
-        token = self.make_token(self.settings.agent_identity, self.settings.agent_name)
+        token = self.make_token(self.settings.agent_identity, self.settings.agent_name, role="agent")
         await self.room.connect(self.settings.livekit_url, token)
         self.status.connected = True
         self._update_participant_count()
@@ -2754,10 +2800,18 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
                 network = ipaddress.ip_network(cidr, strict=False)
                 if network.version != 4:
                     continue
+                if not bot._private_discovery_network(network):
+                    LOG.info("skipping non-private discovery CIDR %s", cidr)
+                    continue
                 if network.num_addresses > bot.settings.discovery_max_hosts + 2:
                     LOG.info("skipping discovery CIDR %s with %s addresses", cidr, network.num_addresses)
                     continue
+                if len(hosts) >= bot.settings.discovery_max_hosts:
+                    LOG.info("discovery host limit reached at %s hosts", len(hosts))
+                    break
                 for ip in network.hosts():
+                    if len(hosts) >= bot.settings.discovery_max_hosts:
+                        break
                     hosts.append(str(ip))
         deduped: list[str] = []
         seen: set[str] = set()
@@ -2811,6 +2865,12 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
                 return web.FileResponse(setup_page, headers={"Cache-Control": "no-store"})
         return web.FileResponse(bot.settings.static_dir / "index.html", headers={"Cache-Control": "no-store"})
 
+    async def setup_page(_: web.Request) -> web.Response:
+        setup_html = bot.settings.static_dir / "setup.html"
+        if not setup_html.exists():
+            raise web.HTTPNotFound(text="Setup page not found")
+        return web.FileResponse(setup_html, headers={"Cache-Control": "no-store"})
+
     async def health(_: web.Request) -> web.Response:
         if bot.settings.setup_required():
             status = "setup_required"
@@ -2854,6 +2914,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         return web.json_response(
             {
                 "setupRequired": bot.settings.setup_required(),
+                "setupTokenRequired": bot.setup_token_required(),
                 "missingSettings": bot.settings.missing_required_settings(),
                 "hermesApiUrl": bot.settings.hermes_api_url,
                 "livekitPublicUrl": bot.settings.livekit_public_url,
@@ -2865,13 +2926,14 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         )
 
     async def setup_discover(request: web.Request) -> web.Response:
+        bot.require_setup_token(request)
         try:
             body = await request.json()
         except json.JSONDecodeError:
             body = {}
         if not isinstance(body, dict):
             raise web.HTTPBadRequest(text="Expected JSON object")
-        api_key = str(body.get("hermesApiKey") or bot.settings.hermes_api_key or "").strip()
+        api_key = str(body.get("hermesApiKey") or "").strip()
         extra_cidrs = _split_csv(str(body.get("cidrs") or ""))
         ports = _parse_discovery_ports(str(body.get("ports") or ",".join(str(port) for port in bot.settings.discovery_ports)))
         hosts = discovery_hosts(extra_cidrs)
@@ -2888,6 +2950,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         return web.json_response({"candidates": results, "scannedHosts": len(hosts), "ports": ports})
 
     async def setup_save(request: web.Request) -> web.Response:
+        bot.require_setup_token(request)
         try:
             body = await request.json()
         except json.JSONDecodeError:
@@ -2930,7 +2993,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
 
         if bool(body.get("restart", True)):
             loop = asyncio.get_running_loop()
-            loop.call_later(0.5, lambda: os._exit(0))
+            loop.call_later(0.2, request.app["stop_event"].set)
         return web.json_response({"ok": True, "restartScheduled": bool(body.get("restart", True))})
 
     async def settings_get(_: web.Request) -> web.Response:
@@ -2939,6 +3002,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         return web.json_response(bot._settings_payload())
 
     async def settings_patch(request: web.Request) -> web.Response:
+        bot.require_setup_token(request)
         try:
             body = await request.json()
         except json.JSONDecodeError:
@@ -2993,6 +3057,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         return web.json_response(result)
 
     app.router.add_get("/", index)
+    app.router.add_get("/setup", setup_page)
     app.router.add_get("/health", health)
     app.router.add_get("/config", config)
     app.router.add_get("/setup/status", setup_status)
@@ -3029,6 +3094,8 @@ async def _main() -> None:
         await bot.start()
 
     app = create_app(bot)
+    stop_event = asyncio.Event()
+    app["stop_event"] = stop_event
     runner = web.AppRunner(app, keepalive_timeout=8)
     await runner.setup()
     sites = []
@@ -3038,7 +3105,6 @@ async def _main() -> None:
         sites.append(site)
         LOG.info("web client listening on http://%s:%d", host, settings.port)
 
-    stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop_event.set)

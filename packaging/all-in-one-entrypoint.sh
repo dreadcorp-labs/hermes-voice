@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 CONFIG_DIR="${CONFIG_DIR:-/config}"
 DATA_DIR="${DATA_DIR:-/data}"
@@ -11,6 +12,7 @@ LIVEKIT_RTC_UDP_END="${LIVEKIT_RTC_UDP_END:-50100}"
 REDIS_PORT="${REDIS_PORT:-16379}"
 TTS_PORT="${TTS_PORT:-8890}"
 PUBLIC_HOST="${HERMES_VOICE_PUBLIC_HOST:-${LIVEKIT_NODE_IP:-}}"
+BIND_HOST="${HERMES_VOICE_BIND_HOST:-127.0.0.1}"
 
 mkdir -p "$CONFIG_DIR" "$DATA_DIR/redis" "$DATA_DIR/emotion" "$DATA_DIR/huggingface" "$DATA_DIR/whisper"
 
@@ -40,9 +42,14 @@ fi
 PUBLIC_HOST="${PUBLIC_HOST:-127.0.0.1}"
 
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(read_env_value LIVEKIT_API_KEY)}"
-LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-hermes_livekit}"
+LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(secret_hex)}"
+if [ "$LIVEKIT_API_KEY" = "hermes_livekit" ]; then
+  LIVEKIT_API_KEY="$(secret_hex)"
+fi
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(read_env_value LIVEKIT_API_SECRET)}"
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(secret_hex)}"
+HERMES_SETUP_TOKEN="${HERMES_SETUP_TOKEN:-$(read_env_value HERMES_SETUP_TOKEN)}"
+HERMES_SETUP_TOKEN="${HERMES_SETUP_TOKEN:-$(secret_hex)}"
 LIVEKIT_ROOM="${LIVEKIT_ROOM:-$(read_env_value LIVEKIT_ROOM)}"
 LIVEKIT_ROOM="${LIVEKIT_ROOM:-hermes-voice}"
 LIVEKIT_URL="${LIVEKIT_URL:-ws://127.0.0.1:$LIVEKIT_PORT}"
@@ -87,8 +94,9 @@ LIVEKIT_PUBLIC_URL=$LIVEKIT_PUBLIC_URL
 LIVEKIT_API_KEY=$LIVEKIT_API_KEY
 LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 LIVEKIT_ROOM=$LIVEKIT_ROOM
+HERMES_SETUP_TOKEN=$HERMES_SETUP_TOKEN
 
-HERMES_LIVEKIT_VOICE_HOST=0.0.0.0
+HERMES_LIVEKIT_VOICE_HOST=$BIND_HOST
 HERMES_LIVEKIT_VOICE_PORT=$WEBUI_PORT
 HERMES_LIVEKIT_STATIC_DIR=/app/sidecar/static
 
@@ -123,7 +131,9 @@ HERMES_EMOTION2VEC_TIMEOUT_SECONDS=8.0
 EOF
 fi
 
-redis-server --port "$REDIS_PORT" --save "" --appendonly no --dir "$DATA_DIR/redis" &
+chmod 600 "$CONFIG_DIR/livekit.yaml" "$CONFIG_DIR/hermes-voice.env"
+
+redis-server --bind 127.0.0.1 --port "$REDIS_PORT" --save "" --appendonly no --dir "$DATA_DIR/redis" &
 redis_pid=$!
 
 livekit-server --config "$CONFIG_DIR/livekit.yaml" --node-ip "${LIVEKIT_NODE_IP:-$PUBLIC_HOST}" &
@@ -131,7 +141,7 @@ livekit_pid=$!
 
 (
   cd /app/tts
-  uvicorn app.main:app --host 0.0.0.0 --port "$TTS_PORT"
+  uvicorn app.main:app --host 127.0.0.1 --port "$TTS_PORT"
 ) &
 tts_pid=$!
 

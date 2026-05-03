@@ -194,6 +194,13 @@
     const statusEl = document.getElementById('status');
     const candidatesEl = document.getElementById('candidates');
     const discoverButton = document.getElementById('discover');
+    const setupTokenParam = new URLSearchParams(window.location.search).get('setupToken') || '';
+    if (setupTokenParam) sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+
+    function setupHeaders(extra = {}) {
+      const token = sessionStorage.getItem('hermes.setupToken') || '';
+      return token ? { ...extra, 'X-Hermes-Setup-Token': token } : extra;
+    }
 
     function setStatus(message, error = false) {
       statusEl.textContent = message;
@@ -204,6 +211,10 @@
       const resp = await fetch('/setup/status', { cache: 'no-store' });
       if (!resp.ok) return;
       const setup = await resp.json();
+      if (setup.setupTokenRequired && !sessionStorage.getItem('hermes.setupToken')) {
+        setStatus('Setup token required. Reopen the setup URL printed by the installer.', true);
+        return;
+      }
       document.getElementById('hermesApiUrl').value = setup.hermesApiUrl || 'http://host.docker.internal:8642/v1/chat/completions';
       document.getElementById('livekitPublicUrl').value = setup.livekitPublicUrl || 'ws://localhost:7880';
       document.getElementById('ttsUrl').value = setup.ttsUrl || 'http://tts:8889/v1/audio/speech';
@@ -239,7 +250,7 @@
       try {
         const resp = await fetch('/setup/discover', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: setupHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             hermesApiKey: form.hermesApiKey.value.trim(),
             cidrs: form.discoveryCidrs.value.trim(),
@@ -277,7 +288,7 @@
       try {
         const resp = await fetch('/setup', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: setupHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(body),
         });
         if (!resp.ok) throw new Error(await resp.text());

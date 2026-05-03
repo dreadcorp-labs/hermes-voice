@@ -47,7 +47,7 @@ DATA_DIR = Path(os.getenv("GLAADOS_DATA_DIR", "/data"))
 SETTINGS_PATH = Path(os.getenv("GLAADOS_SETTINGS_PATH", str(DATA_DIR / "runtime_settings.json")))
 DEFAULT_SETTINGS_PATH = Path(os.getenv("GLAADOS_DEFAULT_SETTINGS_PATH", "/defaults/runtime_settings.json"))
 GRAILLON_ENABLED = os.getenv("GLAADOS_GRAILLON_ENABLED", "true").lower() not in {"0", "false", "no"}
-MAX_INPUT_CHARS = int(os.getenv("GLAADOS_MAX_INPUT_CHARS", "4000"))
+MAX_INPUT_CHARS = min(max(int(os.getenv("GLAADOS_MAX_INPUT_CHARS", "4000")), 1), 10_000)
 DEFAULT_TUNE_KEY = str(os.getenv("GLAADOS_TUNE_KEY", "G") or "G").strip()
 DEFAULT_TUNE_SCALE = str(os.getenv("GLAADOS_TUNE_SCALE", "major") or "major").strip().lower()
 DEFAULT_EFFECTS_PRESET = str(
@@ -1385,7 +1385,10 @@ def create_speech(request: SpeechRequest):
     if not text:
         raise HTTPException(status_code=400, detail="input is required")
     if len(text) > MAX_INPUT_CHARS:
-        text = text[:MAX_INPUT_CHARS]
+        raise HTTPException(
+            status_code=400,
+            detail=f"input is too long: {len(text)} chars, max {MAX_INPUT_CHARS}",
+        )
 
     settings = _current_settings_copy()
     response_format = request.response_format.lower().strip() or "mp3"

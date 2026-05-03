@@ -1231,6 +1231,13 @@
     let audioOutputDevices = [];
     let selectedAudioInputId = localStorage.getItem('hermes.audioInputId') || '';
     let selectedAudioOutputId = localStorage.getItem('hermes.audioOutputId') || '';
+    const setupTokenParam = new URLSearchParams(window.location.search).get('setupToken') || '';
+    if (setupTokenParam) sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+
+    function setupHeaders(extra = {}) {
+      const token = sessionStorage.getItem('hermes.setupToken') || '';
+      return token ? { ...extra, 'X-Hermes-Setup-Token': token } : extra;
+    }
     let desktopShortcutHydrating = false;
     let micAnalyserStop = null;
     const visualMaskCanvas = document.createElement('canvas');
@@ -1533,7 +1540,7 @@
       try {
         const resp = await fetch('/settings', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: setupHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(partial),
         });
         if (!resp.ok) throw new Error(await resp.text());

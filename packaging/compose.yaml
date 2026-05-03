@@ -13,9 +13,9 @@ services:
     depends_on:
       - redis
     ports:
-      - "${LIVEKIT_PORT:-7880}:7880/tcp"
-      - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
-      - "${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}:${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}/udp"
+      - "${HERMES_VOICE_BIND_HOST:-127.0.0.1}:${LIVEKIT_PORT:-7880}:7880/tcp"
+      - "${HERMES_VOICE_BIND_HOST:-127.0.0.1}:${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
+      - "${HERMES_VOICE_BIND_HOST:-127.0.0.1}:${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}:${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}/udp"
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml:ro
 
@@ -38,7 +38,7 @@ services:
       HF_HOME: /data/huggingface
       OMP_NUM_THREADS: ${HERMES_TTS_THREADS:-4}
     ports:
-      - "${TTS_PORT:-8890}:8889"
+      - "${HERMES_VOICE_BIND_HOST:-127.0.0.1}:${TTS_PORT:-8890}:8889"
     volumes:
       - tts-data:/data
     healthcheck:
@@ -62,7 +62,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${WEBUI_PORT:-8765}:8765"
+      - "${HERMES_VOICE_BIND_HOST:-127.0.0.1}:${WEBUI_PORT:-8765}:8765"
     volumes:
       - ./config:/config
       - sidecar-data:/data
