@@ -48,6 +48,15 @@ Install:
 curl -fsSL https://raw.githubusercontent.com/dreadcorp-labs/hermes-voice/main/packaging/bootstrap.sh | bash
 ```
 
+Update:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dreadcorp-labs/hermes-voice/main/packaging/bootstrap.sh | bash
+```
+
+The same command updates an existing install by pulling the latest `main`,
+rebuilding the container, and preserving local runtime config.
+
 Open:
 
 ```text

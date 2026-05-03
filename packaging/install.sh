@@ -69,6 +69,14 @@ secret_hex() {
   fi
 }
 
+read_existing_config() {
+  local key="$1"
+  local path="$INSTALL_DIR/config/hermes-voice.env"
+  if [ -f "$path" ]; then
+    awk -F= -v wanted="$key" '$1 == wanted { value=$0; sub(/^[^=]*=/, "", value); gsub(/^'\''|'\''$/, "", value); gsub(/^"|"$/, "", value); print value; exit }' "$path"
+  fi
+}
+
 detect_lan_cidrs() {
   if command -v ip >/dev/null 2>&1; then
     ip -o -4 addr show scope global | awk '
@@ -80,15 +88,23 @@ detect_lan_cidrs() {
   fi
 }
 
+LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(read_existing_config LIVEKIT_API_KEY)}"
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(secret_hex)}"
 if [ "$LIVEKIT_API_KEY" = "hermes_livekit" ]; then
   echo "LIVEKIT_API_KEY=hermes_livekit is not allowed. Use a random key or omit it so the installer can generate one." >&2
   exit 1
 fi
+LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(read_existing_config LIVEKIT_API_SECRET)}"
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(secret_hex)}"
+HERMES_SETUP_TOKEN="${HERMES_SETUP_TOKEN:-$(read_existing_config HERMES_SETUP_TOKEN)}"
 HERMES_SETUP_TOKEN="${HERMES_SETUP_TOKEN:-$(secret_hex)}"
+HERMES_DISCOVERY_CIDRS="${HERMES_DISCOVERY_CIDRS:-$(read_existing_config HERMES_DISCOVERY_CIDRS)}"
 HERMES_DISCOVERY_CIDRS="${HERMES_DISCOVERY_CIDRS:-$(detect_lan_cidrs)}"
+HERMES_DISCOVERY_PORTS="${HERMES_DISCOVERY_PORTS:-$(read_existing_config HERMES_DISCOVERY_PORTS)}"
 HERMES_DISCOVERY_PORTS="${HERMES_DISCOVERY_PORTS:-8642,8000,8080,1235}"
+if [ -z "${HERMES_API_URL:-}" ]; then
+  HERMES_API_URL="$(read_existing_config HERMES_API_URL)"
+fi
 if [ -z "${HERMES_API_URL:-}" ]; then
   HERMES_API_URL="http://host.docker.internal:8642/v1/chat/completions"
   if command -v curl >/dev/null 2>&1; then
@@ -99,6 +115,7 @@ if [ -z "${HERMES_API_URL:-}" ]; then
   fi
 fi
 HERMES_API_KEY="${HERMES_API_KEY:-${API_SERVER_KEY:-}}"
+HERMES_API_KEY="${HERMES_API_KEY:-$(read_existing_config HERMES_API_KEY)}"
 if [ -z "$HERMES_API_KEY" ] && [ -f "$HOME/.hermes/.env" ]; then
   hermes_key_line="$(grep -E '^(HERMES_API_KEY|API_SERVER_KEY)=' "$HOME/.hermes/.env" | head -n 1 || true)"
   HERMES_API_KEY="${hermes_key_line#*=}"
@@ -107,6 +124,7 @@ if [ -z "$HERMES_API_KEY" ] && [ -f "$HOME/.hermes/.env" ]; then
   HERMES_API_KEY="${HERMES_API_KEY%\'}"
   HERMES_API_KEY="${HERMES_API_KEY#\'}"
 fi
+LIVEKIT_PUBLIC_URL="${LIVEKIT_PUBLIC_URL:-$(read_existing_config LIVEKIT_PUBLIC_URL)}"
 LIVEKIT_PUBLIC_URL="${LIVEKIT_PUBLIC_URL:-ws://$PUBLIC_HOST:$LIVEKIT_PORT}"
 WEBUI_URL="${HERMES_VOICE_WEBUI_URL:-http://$PUBLIC_HOST:$WEBUI_PORT}"
 if [ "$PACKAGE_MODE" = "single" ]; then
