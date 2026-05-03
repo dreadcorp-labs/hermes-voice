@@ -3,22 +3,42 @@ set -euo pipefail
 umask 077
 
 INSTALL_DIR="${HERMES_VOICE_INSTALL_DIR:-$HOME/.hermes-voice}"
-PACKAGE_MODE="${HERMES_VOICE_PACKAGE_MODE:-single}"
+
+read_existing_install_env() {
+  local key="$1"
+  local path="$INSTALL_DIR/.env"
+  if [ -f "$path" ]; then
+    awk -F= -v wanted="$key" '$1 == wanted { value=$0; sub(/^[^=]*=/, "", value); gsub(/^'\''|'\''$/, "", value); gsub(/^"|"$/, "", value); print value; exit }' "$path"
+  fi
+}
+
+PACKAGE_MODE="${HERMES_VOICE_PACKAGE_MODE:-$(read_existing_install_env HERMES_VOICE_PACKAGE_MODE)}"
+PACKAGE_MODE="${PACKAGE_MODE:-single}"
+WEBUI_PORT="${WEBUI_PORT:-$(read_existing_install_env WEBUI_PORT)}"
 WEBUI_PORT="${WEBUI_PORT:-8765}"
+LIVEKIT_PORT="${LIVEKIT_PORT:-$(read_existing_install_env LIVEKIT_PORT)}"
 LIVEKIT_PORT="${LIVEKIT_PORT:-7880}"
+LIVEKIT_RTC_TCP_PORT="${LIVEKIT_RTC_TCP_PORT:-$(read_existing_install_env LIVEKIT_RTC_TCP_PORT)}"
 LIVEKIT_RTC_TCP_PORT="${LIVEKIT_RTC_TCP_PORT:-7881}"
+LIVEKIT_RTC_UDP_START="${LIVEKIT_RTC_UDP_START:-$(read_existing_install_env LIVEKIT_RTC_UDP_START)}"
 LIVEKIT_RTC_UDP_START="${LIVEKIT_RTC_UDP_START:-50000}"
+LIVEKIT_RTC_UDP_END="${LIVEKIT_RTC_UDP_END:-$(read_existing_install_env LIVEKIT_RTC_UDP_END)}"
 LIVEKIT_RTC_UDP_END="${LIVEKIT_RTC_UDP_END:-50100}"
+REDIS_PORT="${REDIS_PORT:-$(read_existing_install_env REDIS_PORT)}"
 REDIS_PORT="${REDIS_PORT:-16379}"
+TTS_PORT="${TTS_PORT:-$(read_existing_install_env TTS_PORT)}"
 TTS_PORT="${TTS_PORT:-8890}"
-PUBLIC_HOST="${HERMES_VOICE_PUBLIC_HOST:-localhost}"
-BIND_HOST="${HERMES_VOICE_BIND_HOST:-127.0.0.1}"
+PUBLIC_HOST="${HERMES_VOICE_PUBLIC_HOST:-$(read_existing_install_env HERMES_VOICE_PUBLIC_HOST)}"
+PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
+BIND_HOST="${HERMES_VOICE_BIND_HOST:-$(read_existing_install_env HERMES_VOICE_BIND_HOST)}"
+BIND_HOST="${BIND_HOST:-127.0.0.1}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_dir="$(cd "$script_dir/.." && pwd)"
 
 default_compose_project="$(basename "$INSTALL_DIR" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]+/-/g; s/^-+//; s/-+$//')"
-COMPOSE_PROJECT_NAME="${HERMES_VOICE_COMPOSE_PROJECT:-${default_compose_project:-hermes-voice}}"
+COMPOSE_PROJECT_NAME="${HERMES_VOICE_COMPOSE_PROJECT:-$(read_existing_install_env HERMES_VOICE_COMPOSE_PROJECT)}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-${default_compose_project:-hermes-voice}}"
 
 if [ ! -f "$source_dir/sidecar/Dockerfile" ] || [ ! -f "$source_dir/tts/Dockerfile" ]; then
   source_dir="$INSTALL_DIR/source"
