@@ -8,17 +8,21 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #020303;
-      --text: #f4f7f5;
-      --muted: #8d9893;
-      --dim: #59645f;
-      --line: rgba(255, 255, 255, 0.12);
-      --panel: rgba(8, 10, 10, 0.82);
-      --panel-solid: rgba(12, 15, 15, 0.96);
-      --green: #f2b85c;
-      --blue: #7ec7ff;
-      --gold: #f2b85c;
-      --red: #ff746d;
+      --bg: oklch(9% 0.012 155);
+      --surface: oklch(13% 0.014 150);
+      --surface-2: oklch(17% 0.012 132);
+      --text: oklch(92% 0.018 112);
+      --muted: oklch(70% 0.018 126);
+      --dim: oklch(48% 0.017 126);
+      --line: color-mix(in oklch, var(--text) 15%, transparent);
+      --line-strong: color-mix(in oklch, var(--text) 25%, transparent);
+      --panel: color-mix(in oklch, var(--surface) 88%, transparent);
+      --panel-solid: oklch(12.5% 0.014 150);
+      --green: oklch(76% 0.12 78);
+      --blue: oklch(76% 0.1 220);
+      --gold: oklch(76% 0.12 78);
+      --red: oklch(68% 0.18 28);
+      --shadow: rgba(0, 0, 0, 0.48);
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -34,7 +38,7 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
     }
 
@@ -51,10 +55,13 @@
       height: 100%;
       display: block;
       background:
-        radial-gradient(circle at 50% 45%, rgba(34, 52, 50, 0.2), transparent 34%),
-        radial-gradient(circle at 15% 85%, rgba(24, 36, 43, 0.2), transparent 32%),
-        radial-gradient(circle at 88% 18%, rgba(52, 41, 24, 0.15), transparent 30%),
-        #020303;
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+        radial-gradient(circle at 50% 44%, color-mix(in oklch, var(--gold) 8%, transparent), transparent 34%),
+        radial-gradient(circle at 14% 88%, rgba(30, 44, 42, 0.24), transparent 34%),
+        radial-gradient(circle at 86% 14%, rgba(58, 42, 22, 0.16), transparent 30%),
+        var(--bg);
+      background-size: 28px 28px, 28px 28px, auto, auto, auto, auto;
     }
 
     .chrome {
@@ -70,29 +77,30 @@
     .topbar {
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
       gap: 14px;
       pointer-events: auto;
     }
 
     .brand {
       min-width: 0;
-      display: none;
-      gap: 2px;
+      display: grid;
+      gap: 3px;
     }
 
     h1 {
       margin: 0;
-      font-size: 20px;
-      line-height: 1.05;
-      font-weight: 720;
+      font-size: 14px;
+      line-height: 1;
+      font-weight: 760;
+      text-transform: uppercase;
     }
 
     .substate {
       min-height: 17px;
-      max-width: min(58vw, 540px);
+      max-width: min(46vw, 540px);
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.25;
       overflow: hidden;
       white-space: nowrap;
@@ -103,16 +111,17 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      height: 34px;
+      height: 36px;
       max-width: 45vw;
       padding: 0 12px;
       border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(0, 0, 0, 0.22);
-      -webkit-backdrop-filter: blur(18px);
-      backdrop-filter: blur(18px);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface) 74%, transparent);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 680;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -140,9 +149,9 @@
     }
 
     .state {
-      font-size: clamp(18px, 4vw, 30px);
+      font-size: clamp(20px, 3.2vw, 34px);
       line-height: 1.08;
-      font-weight: 740;
+      font-weight: 780;
     }
 
     .detail {
@@ -265,26 +274,36 @@
     }
 
     .dock {
+      position: relative;
       justify-self: center;
       display: flex;
       align-items: center;
-      gap: 9px;
-      padding: 9px;
+      gap: 6px;
+      padding: 8px;
       border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(2, 3, 3, 0.6);
-      -webkit-backdrop-filter: blur(24px);
-      backdrop-filter: blur(24px);
-      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+      border-radius: 12px;
+      background: color-mix(in oklch, var(--surface) 84%, transparent);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 54px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
       pointer-events: auto;
+    }
+
+    .dock::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border: 1px solid rgba(242, 184, 92, 0.08);
+      border-radius: 8px;
+      pointer-events: none;
     }
 
     .dock.mic-active {
       border-color: rgba(242, 184, 92, 0.66);
-      background: rgba(40, 25, 6, 0.72);
+      background: color-mix(in oklch, var(--surface) 72%, var(--gold) 12%);
       box-shadow:
-        0 22px 70px rgba(0, 0, 0, 0.45),
-        0 0 34px rgba(242, 184, 92, 0.22);
+        0 18px 54px var(--shadow),
+        0 0 26px rgba(242, 184, 92, 0.2);
     }
 
     button,
@@ -297,8 +316,8 @@
     button {
       appearance: none;
       border: 1px solid transparent;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface-2) 82%, transparent);
       color: var(--text);
       cursor: pointer;
       touch-action: manipulation;
@@ -322,11 +341,12 @@
       height: 48px;
       display: grid;
       place-items: center;
-      transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+      border-color: rgba(255, 255, 255, 0.07);
+      transition: background 160ms cubic-bezier(.22, 1, .36, 1), border-color 160ms cubic-bezier(.22, 1, .36, 1), transform 160ms cubic-bezier(.22, 1, .36, 1);
     }
 
     .icon-button:hover {
-      background: rgba(255, 255, 255, 0.13);
+      background: color-mix(in oklch, var(--surface-2) 72%, var(--text) 7%);
       transform: translateY(-1px);
     }
 
@@ -382,13 +402,13 @@
       left: 50%;
       bottom: calc(88px + var(--safe-bottom));
       width: min(720px, calc(100vw - 24px));
-      max-height: min(56vh, 480px);
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      max-height: min(64vh, 560px);
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
       background: var(--panel-solid);
-      -webkit-backdrop-filter: blur(28px);
-      backdrop-filter: blur(28px);
-      box-shadow: 0 26px 84px rgba(0, 0, 0, 0.55);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 26px 84px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.04);
       overflow: hidden;
       opacity: 0;
       transform: translate(-50%, 18px);
@@ -416,8 +436,8 @@
       max-height: 190px;
       resize: vertical;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface-2) 88%, transparent);
       color: var(--text);
       padding: 12px 13px;
       line-height: 1.4;
@@ -434,8 +454,8 @@
       width: 100%;
       min-height: 40px;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.07);
+      border-radius: 7px;
+      background: color-mix(in oklch, var(--surface-2) 88%, transparent);
       color: var(--text);
       padding: 8px 10px;
     }
@@ -450,7 +470,7 @@
       min-width: 86px;
       padding: 0 18px;
       border-color: rgba(242, 184, 92, 0.4);
-      background: rgba(242, 184, 92, 0.16);
+      background: color-mix(in oklch, var(--surface-2) 68%, var(--gold) 18%);
       font-weight: 720;
     }
 
@@ -468,7 +488,9 @@
       padding: 0 14px;
       border-bottom: 1px solid var(--line);
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 760;
+      text-transform: uppercase;
     }
 
     .panel-head a {
@@ -492,7 +514,7 @@
       flex-direction: column;
       gap: 10px;
       color: #dce2df;
-      font: 13px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+      font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     .chat-panel .composer {
@@ -513,7 +535,7 @@
       display: grid;
       place-items: center;
       border-color: rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.07);
+      background: color-mix(in oklch, var(--surface-2) 88%, transparent);
     }
 
     .file-input {
@@ -566,7 +588,7 @@
     }
 
     .settings-panel {
-      position: relative;
+      position: fixed;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
@@ -574,9 +596,9 @@
 
     .settings-form {
       overflow: auto;
-      padding: 14px;
+      padding: 14px 16px 16px;
       display: grid;
-      gap: 13px;
+      gap: 12px;
     }
 
     .field {
@@ -589,6 +611,7 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 720;
+      text-transform: uppercase;
     }
 
     .toggle-row {
@@ -689,10 +712,10 @@
       min-height: 34px;
       width: fit-content;
       padding: 0 12px;
-      border-radius: 10px;
+      border-radius: 7px;
       font-size: 12px;
       color: var(--text);
-      background: rgba(255, 255, 255, 0.07);
+      background: color-mix(in oklch, var(--surface-2) 88%, transparent);
       border: 1px solid var(--line);
     }
 
@@ -701,8 +724,8 @@
       gap: 10px;
       padding: 12px;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.035);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface-2) 62%, transparent);
     }
 
     .update-card-title {
@@ -737,9 +760,9 @@
       height: 34px;
       display: grid;
       place-items: center;
-      border-radius: 10px;
+      border-radius: 7px;
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.06);
+      background: color-mix(in oklch, var(--surface-2) 76%, transparent);
       color: var(--muted);
       font-size: 17px;
     }
@@ -747,8 +770,8 @@
     .entry-body {
       min-width: 0;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.055);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface-2) 68%, transparent);
       padding: 8px 10px 9px;
     }
 
@@ -841,7 +864,6 @@
       border-radius: inherit;
       background: linear-gradient(90deg, rgba(242, 184, 92, 0), rgba(255, 209, 132, 0.98) 45%, #ffd184 50%, rgba(255, 209, 132, 0.98) 55%, rgba(242, 184, 92, 0));
       transform: translateX(-50%);
-      transition: width 70ms linear;
     }
 
     .affect-readout {
@@ -879,8 +901,8 @@
       max-width: min(580px, calc(100vw - 28px));
       padding: 11px 13px;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 12px;
-      background: rgba(10, 12, 12, 0.88);
+      border-radius: 8px;
+      background: color-mix(in oklch, var(--surface) 92%, transparent);
       -webkit-backdrop-filter: blur(18px);
       backdrop-filter: blur(18px);
       color: #dce2df;
