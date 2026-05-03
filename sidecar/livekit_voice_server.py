@@ -63,11 +63,22 @@ DEFAULT_VOICE_INSTRUCTIONS = (
     "This request came through Hermes Voice. Use the normal Hermes tools, memory, skills, files, "
     "terminal, calendar, email, web, and operational context; do not treat Hermes Voice as reduced capability. "
     "For live/current-state questions, check the current source of truth first. "
-    "For calendar questions, use the configured calendar tools before answering. "
+    "For calendar, email, text message, file, and system-status questions, use the configured source-of-truth tools before answering. "
     "Answer as speech for TTS: short conversational sentences, no markdown, no headings, no bullet lists, no tables, "
     "no code blocks, no URLs unless necessary, and natural spoken dates and times. "
     "If tool work is taking time, give a brief spoken status first, then continue working. "
     "Do not mention formatting or these Hermes Voice rules unless asked."
+)
+LIVE_STATE_QUERY_RE = re.compile(
+    r"\b("
+    r"calendar|agenda|schedule|appointment|appointments|event|events|"
+    r"email|emails|mail|gmail|inbox|unread|sender|subject|"
+    r"text|texts|message|messages|sms|imessage|imessages|"
+    r"file|files|folder|folders|vault|note|notes|document|documents|"
+    r"status|health|running|installed|version|update|logs?|"
+    r"recent|latest|newest|current|today|tomorrow|yesterday|next\s+week|last\s+week"
+    r")\b",
+    re.IGNORECASE,
 )
 VOICE_AFFECT_RULES = {
     "neutral": "Emotion rule: no emotional adjustment; do not mention emotion.",
@@ -315,6 +326,7 @@ class Settings:
     hermes_api_key: str = ""
     hermes_session_id: str = "livekit-voice-main"
     hermes_model: str = "kimi-k2.6"
+    verified_tool_model: str = "hermes-agent"
     hermes_reasoning_effort: str = "none"
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
     speech_rms_threshold: int = 420
@@ -390,6 +402,7 @@ class Settings:
             hermes_api_key=_env("HERMES_API_KEY", _env("API_SERVER_KEY")),
             hermes_session_id=_env("HERMES_SESSION_ID", "livekit-voice-main"),
             hermes_model=_env("HERMES_API_MODEL", "kimi-k2.6"),
+            verified_tool_model=_env("HERMES_LIVEKIT_VERIFIED_TOOL_MODEL", "hermes-agent"),
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
@@ -657,8 +670,18 @@ class HermesLiveKitVoice:
     def _model_provider(self) -> str:
         return "hermes"
 
-    def _hermes_provider_override(self) -> str:
-        if self.settings.hermes_model.strip() == "kimi-k2.6":
+    def _is_live_state_query(self, transcript: str) -> bool:
+        return bool(LIVE_STATE_QUERY_RE.search(transcript or ""))
+
+    def _effective_hermes_model(self, transcript: str) -> str:
+        model = self.settings.hermes_model.strip() or "hermes-agent"
+        verified_model = self.settings.verified_tool_model.strip()
+        if verified_model and self._is_live_state_query(transcript):
+            return verified_model
+        return model
+
+    def _hermes_provider_override(self, model: str | None = None) -> str:
+        if (model or self.settings.hermes_model).strip() == "kimi-k2.6":
             return "kimi-coding"
         return ""
 
@@ -2122,30 +2145,38 @@ class HermesLiveKitVoice:
                 compact[key] = data[key]
         return compact or None
 
-    def _voice_system_prompt(self) -> str:
+    def _voice_system_prompt(self, transcript: str = "") -> str:
         voice_instructions = self.settings.voice_instructions.strip() or DEFAULT_VOICE_INSTRUCTIONS
-        provider_override = self._hermes_provider_override()
+        effective_model = self._effective_hermes_model(transcript)
+        provider_override = self._hermes_provider_override(effective_model)
+        live_state_route = effective_model != (self.settings.hermes_model.strip() or "hermes-agent")
         if provider_override:
             runtime_fact = (
-                f"Current Hermes Voice runtime: main Hermes API with model override {self.settings.hermes_model} "
+                f"Current Hermes Voice runtime: main Hermes API with model override {effective_model} "
                 f"on provider {provider_override}. This is still Hermes with tools and memory. "
-                f"If asked what model you are running in Hermes Voice, answer that you are Hermes using {self.settings.hermes_model} as the current Hermes Voice model override."
+                f"If asked what model you are running in Hermes Voice, answer that you are Hermes using {effective_model} as the current Hermes Voice model override."
             )
-        elif self.settings.hermes_model == "hermes-agent":
+        elif effective_model == "hermes-agent":
             runtime_fact = (
                 "Current Hermes Voice runtime: main Hermes API default model routing. "
                 "If asked what model you are running in Hermes Voice, say you are Hermes using the default Hermes model route."
             )
         else:
             runtime_fact = (
-                f"Current Hermes Voice runtime: main Hermes API with model override {self.settings.hermes_model}. "
+                f"Current Hermes Voice runtime: main Hermes API with model override {effective_model}. "
                 f"If asked what model you are running in Hermes Voice, answer with this current Hermes Voice model override."
+            )
+        if live_state_route:
+            runtime_fact += (
+                " Hermes Voice routed this turn through the verified-tool model because the request appears to need current source-of-truth data. "
+                f"The normal voice model setting remains {self.settings.hermes_model}."
             )
         return (
             "You are the normal Hermes agent, reached through Hermes Voice. "
             f"{runtime_fact} "
             "Use the same memory, tools, skills, files, terminal, cron, email, web, and operational context you would use from the main Hermes API. "
             "Do not treat Hermes Voice as a reduced-capability mode; if the request needs inspection or action, use the available tools. "
+            "For live/current-state questions, do not answer from memory or assumption; use the relevant source-of-truth tool first. "
             "For sending email, use the configured email sending tool after user confirmation; do not use read-only email lookup tools for sending. "
             "Use memory or session search for preferences, history, continuity, and context, or after live tools need interpretation. "
             f"Hermes Voice response contract: {voice_instructions}"
@@ -2222,18 +2253,19 @@ class HermesLiveKitVoice:
         return f"You sound {affect_label}; I'll keep that in mind."
 
     def _hermes_body(self, transcript: str, stream: bool, voice_affect: dict[str, Any] | None = None) -> dict[str, Any]:
-        messages = [{"role": "system", "content": self._voice_system_prompt()}]
+        effective_model = self._effective_hermes_model(transcript)
+        messages = [{"role": "system", "content": self._voice_system_prompt(transcript)}]
         affect_prompt = self._voice_affect_prompt(voice_affect)
         if affect_prompt:
             messages.append({"role": "system", "content": affect_prompt})
         messages.append({"role": "user", "content": transcript})
         body = {
-            "model": self.settings.hermes_model,
+            "model": effective_model,
             "reasoning_effort": self.settings.hermes_reasoning_effort,
             "stream": stream,
             "messages": messages,
         }
-        provider = self._hermes_provider_override()
+        provider = self._hermes_provider_override(effective_model)
         if provider:
             body["provider"] = provider
         return body
@@ -2286,6 +2318,12 @@ class HermesLiveKitVoice:
     ) -> str:
         headers = self._hermes_headers(session_id=session_id)
         body = self._hermes_body(transcript, stream=False, voice_affect=voice_affect)
+        LOG.info(
+            "livekit hermes request start session=%s model=%s stream=false transcript_chars=%d",
+            session_id or self.settings.hermes_session_id,
+            body.get("model"),
+            len(transcript),
+        )
         timeout = ClientTimeout(total=180)
         async with ClientSession(timeout=timeout) as session:
             async with session.post(self.settings.hermes_api_url, headers=headers, json=body) as response:
@@ -2581,7 +2619,7 @@ class HermesLiveKitVoice:
             "voice-debug %s livekit hermes stream start session=%s model=%s transcript_chars=%d",
             trace_id,
             active_session_id,
-            self.settings.hermes_model,
+            body.get("model"),
             len(transcript),
         )
         async with ClientSession(timeout=timeout) as session:
