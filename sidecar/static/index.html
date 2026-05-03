@@ -148,7 +148,7 @@
     .substate {
       min-height: 14px;
       max-width: min(46vw, 540px);
-      color: var(--gold-soft);
+      color: var(--muted);
       font-size: 11px;
       line-height: 1.15;
       font-weight: 600;
@@ -156,6 +156,10 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    .substate.model-detail {
+      color: var(--gold);
     }
 
     .connection {
@@ -1509,7 +1513,9 @@
     }
 
     function setTopDetail(text = '') {
-      topDetailEl.textContent = String(text || selectedModelLabel()).toLowerCase();
+      const hasDetail = Boolean(String(text || '').trim());
+      topDetailEl.textContent = String(hasDetail ? text : selectedModelLabel()).toLowerCase();
+      topDetailEl.classList.toggle('model-detail', !hasDetail);
     }
 
     function renderBrandModel(settings = runtimeSettings) {
