@@ -1,7 +1,7 @@
 # Hermes Voice
 
 <p align="center">
-  <img src="assets/dreadcorp-banner.png" alt="Dreadcorp Labs banner" width="100%">
+  <img src="‎assets/dreadcorp-owl-logo.png‎" alt="Dreadcorp Labs transparent banner" width="100%">
 </p>
 
 <p align="center">
