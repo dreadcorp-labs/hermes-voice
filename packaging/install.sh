@@ -93,6 +93,39 @@ detect_lan_cidrs() {
   fi
 }
 
+detect_kimi_model_choices() {
+  local hermes_env="$HOME/.hermes/.env"
+  local kimi_key=""
+  local kimi_base="https://api.moonshot.ai/v1"
+  if [ -f "$hermes_env" ]; then
+    kimi_key="$(awk -F= '$1 == "KIMI_API_KEY" || $1 == "KIMI_CODING_API_KEY" { value=$0; sub(/^[^=]*=/, "", value); gsub(/^'\''|'\''$/, "", value); gsub(/^"|"$/, "", value); print value; exit }' "$hermes_env")"
+    kimi_base="$(awk -F= '$1 == "KIMI_BASE_URL" { value=$0; sub(/^[^=]*=/, "", value); gsub(/^'\''|'\''$/, "", value); gsub(/^"|"$/, "", value); print value; exit }' "$hermes_env")"
+    kimi_base="${kimi_base:-https://api.moonshot.ai/v1}"
+  fi
+  if [ -n "$kimi_key" ] && command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    KIMI_API_KEY="$kimi_key" KIMI_BASE_URL="$kimi_base" python3 - <<'PY' 2>/dev/null || true
+import json
+import os
+import urllib.request
+
+base = os.environ.get("KIMI_BASE_URL", "https://api.moonshot.ai/v1").rstrip("/")
+key = os.environ.get("KIMI_API_KEY", "")
+req = urllib.request.Request(base + "/models", headers={"Authorization": f"Bearer {key}"})
+with urllib.request.urlopen(req, timeout=8) as resp:
+    data = json.loads(resp.read().decode("utf-8", "replace"))
+ids = []
+for item in data.get("data", []):
+    if isinstance(item, dict):
+        model_id = str(item.get("id") or "").strip()
+        if model_id.startswith(("kimi-", "moonshot-")):
+            ids.append(model_id)
+preferred = ["kimi-k2.6", "kimi-k2.5", "kimi-k2-thinking", "kimi-k2-thinking-turbo"]
+ordered = [m for m in preferred if m in ids] + [m for m in ids if m not in preferred]
+print(",".join(f"{m}|{m}|kimi-coding" for m in ordered))
+PY
+  fi
+}
+
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(read_existing_config LIVEKIT_API_KEY)}"
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(secret_hex)}"
 if [ "$LIVEKIT_API_KEY" = "hermes_livekit" ]; then
@@ -137,6 +170,8 @@ case "$HERMES_API_MODEL" in
 esac
 HERMES_API_PROVIDER="${HERMES_API_PROVIDER:-$(read_existing_config HERMES_API_PROVIDER)}"
 HERMES_API_PROVIDER="${HERMES_API_PROVIDER:-$default_hermes_api_provider}"
+HERMES_LIVEKIT_MODEL_CHOICES="${HERMES_LIVEKIT_MODEL_CHOICES:-$(read_existing_config HERMES_LIVEKIT_MODEL_CHOICES)}"
+HERMES_LIVEKIT_MODEL_CHOICES="${HERMES_LIVEKIT_MODEL_CHOICES:-$(detect_kimi_model_choices)}"
 LIVEKIT_PUBLIC_URL="${LIVEKIT_PUBLIC_URL:-$(read_existing_config LIVEKIT_PUBLIC_URL)}"
 LIVEKIT_PUBLIC_URL="${LIVEKIT_PUBLIC_URL:-ws://$PUBLIC_HOST:$LIVEKIT_PORT}"
 WEBUI_URL="${HERMES_VOICE_WEBUI_URL:-http://$PUBLIC_HOST:$WEBUI_PORT}"
@@ -225,6 +260,7 @@ HERMES_SESSION_ID=livekit-voice-main
 HERMES_API_MODEL=$HERMES_API_MODEL
 HERMES_API_PROVIDER=$HERMES_API_PROVIDER
 HERMES_API_REASONING_EFFORT=none
+HERMES_LIVEKIT_MODEL_CHOICES=$HERMES_LIVEKIT_MODEL_CHOICES
 HERMES_LIVEKIT_HERMES_STREAMING=true
 HERMES_DISCOVERY_CIDRS=$HERMES_DISCOVERY_CIDRS
 HERMES_DISCOVERY_PORTS=$HERMES_DISCOVERY_PORTS
@@ -254,6 +290,10 @@ chmod 600 "$INSTALL_DIR/.env" "$INSTALL_DIR/config/livekit.yaml" "$INSTALL_DIR/c
 
 if command -v chown >/dev/null 2>&1; then
   chown -R 1000:1000 "$INSTALL_DIR/config" 2>/dev/null || true
+fi
+
+if [ "${HERMES_VOICE_CONFIGURE_HERMES_MODELS:-true}" != "false" ] && [ -f "$HOME/.hermes/config.yaml" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "$source_dir/packaging/configure-hermes-models.py" || true
 fi
 
 echo "Starting Hermes Voice from $INSTALL_DIR"

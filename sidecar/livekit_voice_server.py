@@ -111,8 +111,7 @@ SETUP_ENV_KEYS = SETTINGS_ENV_KEYS | {
 }
 DEFAULT_MODEL_CHOICES = (
     {"id": "kimi-k2.6", "name": "Kimi K2.6", "provider": "kimi-coding"},
-    {"id": "kimi-k2-thinking", "name": "Kimi K2 Thinking", "provider": "kimi-coding"},
-    {"id": "kimi-k2-thinking-turbo", "name": "Kimi K2 Thinking Turbo", "provider": "kimi-coding"},
+    {"id": "kimi-k2.5", "name": "Kimi K2.5", "provider": "kimi-coding"},
     {"id": "hermes-agent", "name": "Hermes default", "provider": "hermes"},
     {"id": "gpt-5.4-mini", "name": "Hermes fast", "provider": "hermes"},
 )
@@ -1256,7 +1255,8 @@ class HermesLiveKitVoice:
             self.status.last_reply = reply
             self.status.last_turn_at = time.time()
             self.status.last_timings = timings
-            self.status.last_error = ""
+            if not timings.get("hermes_error"):
+                self.status.last_error = ""
             turn = {
                 "at": self.status.last_turn_at,
                 "identity": identity,
@@ -1338,7 +1338,8 @@ class HermesLiveKitVoice:
             self.status.last_reply = reply
             self.status.last_turn_at = time.time()
             self.status.last_timings = timings
-            self.status.last_error = ""
+            if not timings.get("hermes_error"):
+                self.status.last_error = ""
             self.status.recent_turns.append(
                 {
                     "at": self.status.last_turn_at,
@@ -2375,12 +2376,22 @@ class HermesLiveKitVoice:
                 self.status.last_error = "Hermes voice stream timed out"
                 await self._publish_state("listening", error="Hermes voice stream timed out")
                 return "", {"hermes": elapsed, "timeout": 1.0}
-            except Exception:
+            except Exception as stream_exc:
                 LOG.warning("streaming Hermes voice turn failed; falling back to full-response path", exc_info=True)
 
         await self._publish_state("thinking", stage="hermes", transcript=transcript)
         hermes_started = time.monotonic()
-        reply = await self._ask_hermes(transcript, voice_affect=voice_affect, session_id=session_id)
+        try:
+            reply = await self._ask_hermes(transcript, voice_affect=voice_affect, session_id=session_id)
+        except Exception as exc:
+            LOG.warning("Hermes voice turn failed", exc_info=True)
+            self.status.last_error = str(exc)[:500]
+            spoken_error = self._spoken_hermes_error(exc)
+            await self._publish_state("error", error=self.status.last_error)
+            timings = {"hermes": time.monotonic() - hermes_started, "hermes_error": 1.0}
+            speak_timings = await self._speak_reply(spoken_error, turn_start)
+            timings.update(speak_timings)
+            return spoken_error, timings
         acknowledgement = self._voice_affect_acknowledgement(voice_affect)
         if acknowledgement and not reply.startswith(acknowledgement):
             reply = f"{acknowledgement} {reply}".strip()
@@ -2393,6 +2404,18 @@ class HermesLiveKitVoice:
         if speak_timings.get("interrupted"):
             return "", timings
         return reply, timings
+
+    def _spoken_hermes_error(self, exc: Exception) -> str:
+        message = str(exc)
+        model = self.settings.hermes_model.strip() or "the selected model"
+        if re.search(r"not found the model|permission denied|model .*not found|404", message, flags=re.I):
+            return (
+                f"Hermes rejected {model}. It is either not configured for this Hermes install "
+                "or the current provider key does not have access. I switched into an error state instead of guessing."
+            )
+        if re.search(r"401|403|unauthorized|forbidden|api key|authentication", message, flags=re.I):
+            return "Hermes rejected the API credentials for this voice session. Check the Hermes API key in setup."
+        return "Hermes returned an error before I could answer. Check the voice status panel or logs for the exact error."
 
     async def _ask_hermes(
         self,
@@ -2791,6 +2814,11 @@ class HermesLiveKitVoice:
                                         len(str(content)),
                                     )
                                 yield str(content)
+        if not first_content_logged and not first_tool_logged:
+            raise RuntimeError(
+                f"Hermes stream ended without content for model {body.get('model')}. "
+                "The selected model may be unavailable or rejected by the provider."
+            )
         LOG.info(
             "voice-debug %s livekit hermes stream done elapsed=%.3fs",
             trace_id,
