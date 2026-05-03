@@ -14,8 +14,8 @@ mkdir -p "$INSTALL_DIR"
 
 if [ -d "$SOURCE_DIR/.git" ]; then
   git -C "$SOURCE_DIR" fetch --prune origin
-  git -C "$SOURCE_DIR" checkout main
-  git -C "$SOURCE_DIR" pull --ff-only origin main
+  git -C "$SOURCE_DIR" checkout -B main origin/main
+  git -C "$SOURCE_DIR" reset --hard origin/main
 else
   rm -rf "$SOURCE_DIR"
   git clone "$REPO_URL" "$SOURCE_DIR"
