@@ -5,13 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hermes Voice Setup</title>
   <style>
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("/fonts/barlow-latin-400-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url("/fonts/barlow-latin-500-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url("/fonts/barlow-latin-600-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url("/fonts/barlow-latin-700-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow";
+      font-style: normal;
+      font-weight: 800;
+      font-display: swap;
+      src: url("/fonts/barlow-latin-800-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow Condensed";
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url("/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Barlow Condensed";
+      font-style: normal;
+      font-weight: 800;
+      font-display: swap;
+      src: url("/fonts/barlow-condensed-latin-800-normal.woff2") format("woff2");
+    }
+
     :root {
       color-scheme: dark;
-      --bg: oklch(9% 0.012 155);
-      --panel: oklch(12.5% 0.014 150);
-      --field: oklch(17% 0.012 132);
-      --text: oklch(92% 0.018 112);
-      --muted: oklch(70% 0.018 126);
+      --font-ui: "Barlow", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
+      --bg: oklch(7.6% 0.01 158);
+      --panel: oklch(10.8% 0.012 150);
+      --field: oklch(15% 0.011 135);
+      --text: oklch(93.5% 0.014 106);
+      --muted: oklch(72% 0.016 118);
       --line: color-mix(in oklch, var(--text) 16%, transparent);
       --line-strong: color-mix(in oklch, var(--text) 26%, transparent);
       --gold: oklch(76% 0.12 78);
@@ -25,13 +83,13 @@
       place-items: center;
       padding: 24px;
       background:
-        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-        radial-gradient(circle at 50% 10%, color-mix(in oklch, var(--gold) 7%, transparent), transparent 32%),
+        linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+        radial-gradient(circle at 50% 10%, color-mix(in oklch, var(--gold) 6%, transparent), transparent 32%),
         var(--bg);
-      background-size: 28px 28px, 28px 28px, auto, auto;
+      background-size: 32px 32px, 32px 32px, auto, auto;
       color: var(--text);
-      font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 15px/1.45 var(--font-ui);
       letter-spacing: 0;
     }
     main {
@@ -41,9 +99,11 @@
     }
     h1 {
       margin: 0;
-      font-size: 30px;
-      line-height: 1.1;
-      font-weight: 780;
+      font-family: var(--font-display);
+      font-size: 42px;
+      line-height: 0.95;
+      font-weight: 800;
+      text-transform: uppercase;
     }
     p {
       margin: 0;
@@ -55,7 +115,7 @@
       padding: 20px;
       border: 1px solid var(--line-strong);
       border-radius: 8px;
-      background: var(--panel);
+      background: linear-gradient(180deg, color-mix(in oklch, var(--field) 28%, var(--panel)), var(--panel));
       box-shadow: 0 24px 80px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     label {
@@ -63,15 +123,15 @@
       gap: 6px;
       color: var(--muted);
       font-size: 12px;
-      font-weight: 720;
+      font-weight: 700;
       text-transform: uppercase;
     }
     input, select {
       width: 100%;
       min-height: 42px;
       border: 1px solid var(--line);
-      border-radius: 7px;
-      background: color-mix(in oklch, var(--field) 88%, transparent);
+      border-radius: 6px;
+      background: color-mix(in oklch, var(--field) 92%, transparent);
       color: var(--text);
       padding: 9px 10px;
       font: inherit;
@@ -96,11 +156,11 @@
     button {
       min-height: 44px;
       border: 1px solid rgba(242, 184, 92, 0.45);
-      border-radius: 7px;
-      background: color-mix(in oklch, var(--field) 68%, var(--gold) 18%);
+      border-radius: 6px;
+      background: linear-gradient(180deg, color-mix(in oklch, var(--field) 58%, var(--gold) 18%), color-mix(in oklch, var(--field) 78%, var(--gold) 12%));
       color: var(--text);
       font: inherit;
-      font-weight: 760;
+      font-weight: 800;
       cursor: pointer;
     }
     button.secondary {
@@ -128,7 +188,7 @@
       border-color: var(--line);
       background: color-mix(in oklch, var(--field) 74%, transparent);
       color: var(--text);
-      font-weight: 640;
+      font-weight: 600;
     }
     .status {
       min-height: 22px;
