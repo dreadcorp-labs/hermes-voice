@@ -1274,10 +1274,13 @@
     let selectedAudioInputId = localStorage.getItem('hermes.audioInputId') || '';
     let selectedAudioOutputId = localStorage.getItem('hermes.audioOutputId') || '';
     const setupTokenParam = new URLSearchParams(window.location.search).get('setupToken') || '';
-    if (setupTokenParam) sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+    if (setupTokenParam) {
+      localStorage.setItem('hermes.setupToken', setupTokenParam);
+      sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+    }
 
     function setupHeaders(extra = {}) {
-      const token = sessionStorage.getItem('hermes.setupToken') || '';
+      const token = sessionStorage.getItem('hermes.setupToken') || localStorage.getItem('hermes.setupToken') || '';
       return token ? { ...extra, 'X-Hermes-Setup-Token': token } : extra;
     }
     let desktopShortcutHydrating = false;
@@ -1653,6 +1656,7 @@
         if (resp.status === 401) {
           const token = window.prompt('Setup token');
           if (token && token.trim()) {
+            localStorage.setItem('hermes.setupToken', token.trim());
             sessionStorage.setItem('hermes.setupToken', token.trim());
             resp = await fetch('/settings', {
               method: 'PATCH',

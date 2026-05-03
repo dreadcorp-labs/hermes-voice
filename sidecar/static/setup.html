@@ -195,10 +195,13 @@
     const candidatesEl = document.getElementById('candidates');
     const discoverButton = document.getElementById('discover');
     const setupTokenParam = new URLSearchParams(window.location.search).get('setupToken') || '';
-    if (setupTokenParam) sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+    if (setupTokenParam) {
+      localStorage.setItem('hermes.setupToken', setupTokenParam);
+      sessionStorage.setItem('hermes.setupToken', setupTokenParam);
+    }
 
     function setupHeaders(extra = {}) {
-      const token = sessionStorage.getItem('hermes.setupToken') || '';
+      const token = sessionStorage.getItem('hermes.setupToken') || localStorage.getItem('hermes.setupToken') || '';
       return token ? { ...extra, 'X-Hermes-Setup-Token': token } : extra;
     }
 
@@ -211,7 +214,7 @@
       const resp = await fetch('/setup/status', { cache: 'no-store' });
       if (!resp.ok) return;
       const setup = await resp.json();
-      if (setup.setupTokenRequired && !sessionStorage.getItem('hermes.setupToken')) {
+      if (setup.setupTokenRequired && !sessionStorage.getItem('hermes.setupToken') && !localStorage.getItem('hermes.setupToken')) {
         setStatus('Setup token required. Reopen the setup URL printed by the installer.', true);
         return;
       }
