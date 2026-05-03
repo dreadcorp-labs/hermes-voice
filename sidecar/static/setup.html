@@ -120,6 +120,9 @@
       padding: 9px 10px;
       font: inherit;
     }
+    select, option {
+      text-transform: lowercase;
+    }
     .row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -179,6 +182,7 @@
     .status {
       min-height: 22px;
       color: var(--muted);
+      text-transform: lowercase;
     }
     .status.error { color: var(--red); }
     @media (max-width: 620px) {

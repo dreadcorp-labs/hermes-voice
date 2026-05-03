@@ -131,7 +131,7 @@
     .brand {
       min-width: 0;
       display: grid;
-      gap: 3px;
+      gap: 2px;
       padding-left: 12px;
       border-left: 2px solid color-mix(in oklch, var(--gold) 68%, transparent);
     }
@@ -141,17 +141,18 @@
       font-family: var(--font-display);
       font-size: 20px;
       line-height: 1;
-      font-weight: 800;
+      font-weight: 500;
       text-transform: lowercase;
     }
 
     .substate {
-      min-height: 17px;
+      min-height: 14px;
       max-width: min(46vw, 540px);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.25;
-      font-weight: 500;
+      color: var(--gold-soft);
+      font-size: 11px;
+      line-height: 1.15;
+      font-weight: 600;
+      text-transform: lowercase;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -521,6 +522,11 @@
       background: color-mix(in oklch, var(--surface-2) 92%, transparent);
       color: var(--text);
       padding: 8px 10px;
+    }
+
+    select,
+    option {
+      text-transform: lowercase;
     }
 
     .settings-form textarea {
@@ -975,6 +981,7 @@
       color: #dce2df;
       font-size: 13px;
       line-height: 1.35;
+      text-transform: lowercase;
       opacity: 0;
       transform: translate(-50%, -8px);
       transition: transform 180ms ease, opacity 180ms ease;
@@ -1061,8 +1068,8 @@
   <div class="chrome">
     <header class="topbar">
       <div class="brand" aria-hidden="true">
-        <h1>Hermes Voice</h1>
-        <div id="topDetail" class="substate">Opening the voice room.</div>
+        <h1>hermes-voice</h1>
+        <div id="topDetail" class="substate">loading model</div>
       </div>
       <div class="connection">
         <span id="dot" class="dot"></span>
@@ -1492,6 +1499,24 @@
       });
     }
 
+    function selectedModelLabel(settings = runtimeSettings) {
+      const modelId = modelSelectEl?.value || settings?.model || 'kimi-k2.6';
+      const choices = settings?.choices?.models || [];
+      const match = choices.find((choice) => choice.id === modelId);
+      const provider = settings?.modelProvider || match?.provider || '';
+      const name = match?.name || modelId;
+      return provider && provider !== 'hermes' ? `${name} (${provider})` : name;
+    }
+
+    function setTopDetail(text = '') {
+      topDetailEl.textContent = String(text || selectedModelLabel()).toLowerCase();
+    }
+
+    function renderBrandModel(settings = runtimeSettings) {
+      if (settings) runtimeSettings = settings;
+      setTopDetail();
+    }
+
     function renderAudioInputSelect(currentDeviceId = '') {
       const previous = audioInputSelectEl.value || selectedAudioInputId;
       audioInputSelectEl.textContent = '';
@@ -1659,6 +1684,7 @@
       sttModelInputEl.value = settings.sttModel || '';
       voiceInstructionsInputEl.value = settings.voiceInstructions || settings.defaultVoiceInstructions || '';
       emotionToggleEl.checked = Boolean(settings.emotionRecognition);
+      renderBrandModel(settings);
       renderUpdateStatus(settings.update || { current: settings.version || 'dev' });
       settingsHydrating = false;
     }
@@ -1806,6 +1832,7 @@
       readoutEl.classList.remove('tool-cue');
       stateLabelEl.textContent = '';
       stateDetailEl.textContent = '';
+      setTopDetail();
     }
 
     function labelsForState(state) {
@@ -1847,11 +1874,11 @@
         clearToolReadout();
         stateLabelEl.textContent = copy.label || '';
         stateDetailEl.textContent = finalDetail || '';
-        topDetailEl.textContent = finalDetail;
+        setTopDetail(finalDetail);
       } else if (!toolReadoutActive) {
         stateLabelEl.textContent = '';
         stateDetailEl.textContent = '';
-        topDetailEl.textContent = finalDetail;
+        setTopDetail(finalDetail);
       }
       if (currentState === 'thinking') {
         startThinkingSound();
@@ -2679,7 +2706,7 @@
       window.clearTimeout(toolReadoutTimer);
       stateLabelEl.textContent = next.title;
       stateDetailEl.textContent = next.subtitle;
-      topDetailEl.textContent = next.subtitle || next.title;
+      setTopDetail(next.subtitle || next.title);
       readoutEl.classList.remove('tool-cue');
       void readoutEl.offsetWidth;
       readoutEl.classList.add('tool-cue');
@@ -2689,7 +2716,7 @@
         readoutEl.classList.remove('tool-cue');
         stateLabelEl.textContent = '';
         stateDetailEl.textContent = '';
-        topDetailEl.textContent = '';
+        setTopDetail();
         if (currentState === 'thinking') {
           window.setTimeout(playNextToolReadout, 80);
         } else {
@@ -3775,7 +3802,10 @@
       fileInputEl.value = '';
       renderAttachments();
     });
-    modelSelectEl.addEventListener('change', () => queueSettingsSave({ model: modelSelectEl.value }));
+    modelSelectEl.addEventListener('change', () => {
+      renderBrandModel();
+      queueSettingsSave({ model: modelSelectEl.value });
+    });
     reasoningSelectEl.addEventListener('change', () => queueSettingsSave({ reasoningEffort: reasoningSelectEl.value }));
     ttsSelectEl.addEventListener('change', () => queueSettingsSave({ ttsBackend: ttsSelectEl.value }));
     audioInputSelectEl.addEventListener('change', switchAudioInput);
