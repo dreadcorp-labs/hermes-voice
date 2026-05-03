@@ -57,6 +57,10 @@ curl -fsSL https://raw.githubusercontent.com/dreadcorp-labs/hermes-voice/main/pa
 The same command updates an existing install by pulling the latest `main`,
 rebuilding the container, and preserving local runtime config.
 
+The Settings screen can also request an update. Packaged installs include a
+small updater helper container that owns Docker access, while the voice app only
+writes a local update request file.
+
 Open:
 
 ```text

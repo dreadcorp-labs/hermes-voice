@@ -854,11 +854,14 @@ class HermesLiveKitVoice:
             return status
 
         output = (stdout or b"").decode("utf-8", errors="replace")
+        success_message = "Update finished"
+        if proc.returncode == 0 and "Update requested" in output:
+            success_message = "Update requested; Hermes Voice will restart if changes are available"
         status.update(
             {
                 "running": False,
                 "ok": proc.returncode == 0,
-                "message": "Update finished" if proc.returncode == 0 else f"Update failed with exit {proc.returncode}",
+                "message": success_message if proc.returncode == 0 else f"Update failed with exit {proc.returncode}",
                 "exitCode": proc.returncode,
                 "outputTail": output[-4000:],
             }

@@ -221,6 +221,7 @@ fi
 
 cat > "$INSTALL_DIR/.env" <<EOF
 HERMES_VOICE_COMPOSE_PROJECT=$COMPOSE_PROJECT_NAME
+HERMES_VOICE_INSTALL_DIR=$INSTALL_DIR
 HERMES_VOICE_SOURCE_DIR=$source_dir
 HERMES_VOICE_VERSION=$HERMES_VOICE_VERSION
 HERMES_VOICE_PUBLIC_HOST=$PUBLIC_HOST
@@ -235,6 +236,33 @@ LIVEKIT_NODE_IP=$PUBLIC_HOST
 REDIS_PORT=$REDIS_PORT
 TTS_PORT=$TTS_PORT
 EOF
+
+cat > "$INSTALL_DIR/config/request-update.sh" <<'EOF'
+#!/bin/sh
+set -eu
+
+CONFIG_DIR="${CONFIG_DIR:-/config}"
+REQUEST_FILE="$CONFIG_DIR/update-request"
+STATUS_FILE="$CONFIG_DIR/update-status.json"
+id="$(date +%s)-$$"
+tmp="$REQUEST_FILE.tmp.$$"
+
+printf '%s\n' "$id" > "$tmp"
+mv "$tmp" "$REQUEST_FILE"
+printf '{"id":"%s","requested":true,"message":"Update requested"}\n' "$id"
+
+deadline=$(( $(date +%s) + 20 ))
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  if [ -f "$STATUS_FILE" ] && grep -q "\"id\":\"$id\"" "$STATUS_FILE"; then
+    cat "$STATUS_FILE"
+    exit 0
+  fi
+  sleep 1
+done
+
+exit 0
+EOF
+chmod 700 "$INSTALL_DIR/config/request-update.sh"
 
 cat > "$INSTALL_DIR/config/livekit.yaml" <<EOF
 port: $LIVEKIT_CONFIG_PORT
@@ -269,6 +297,8 @@ LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 LIVEKIT_ROOM=hermes-voice
 HERMES_SETUP_TOKEN=$HERMES_SETUP_TOKEN
 HERMES_VOICE_VERSION=$HERMES_VOICE_VERSION
+HERMES_VOICE_UPDATE_COMMAND=/bin/sh /config/request-update.sh
+HERMES_VOICE_UPDATE_DISPLAY_COMMAND=curl -fsSL https://raw.githubusercontent.com/dreadcorp-labs/hermes-voice/main/packaging/bootstrap.sh | bash
 
 HERMES_LIVEKIT_VOICE_HOST=$SIDECAR_BIND_HOST
 HERMES_LIVEKIT_VOICE_PORT=$SIDECAR_PORT

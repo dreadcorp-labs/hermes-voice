@@ -10,7 +10,9 @@ The default install target is a single Docker container running:
 The Hermes agent/API server is external. First-run setup connects this voice
 stack to an existing Hermes API URL and API key.
 
-The installer uses Docker Compose to build and run the one service. Set
+The installer uses Docker Compose to build and run the all-in-one voice service
+plus a small updater helper. The helper owns Docker access for Settings -> Run
+Update, while the voice service only writes a local update request file. Set
 `HERMES_VOICE_PACKAGE_MODE=multi` to use the older four-container layout.
 
 ## One-Line Install

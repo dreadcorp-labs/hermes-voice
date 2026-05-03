@@ -43,5 +43,21 @@ services:
       timeout: 5s
       retries: 5
 
+  updater:
+    image: docker:28-cli
+    restart: unless-stopped
+    command: ["sh", "/usr/local/bin/hermes-voice-update-daemon"]
+    environment:
+      HERMES_VOICE_INSTALL_DIR: ${HERMES_VOICE_INSTALL_DIR}
+      HERMES_VOICE_SOURCE_DIR: ${HERMES_VOICE_SOURCE_DIR}
+      HERMES_VOICE_UPDATE_BRANCH: ${HERMES_VOICE_UPDATE_BRANCH:-main}
+      CONFIG_DIR: /config
+    volumes:
+      - ./config:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HERMES_VOICE_INSTALL_DIR}:${HERMES_VOICE_INSTALL_DIR}
+      - ${HERMES_VOICE_SOURCE_DIR}:${HERMES_VOICE_SOURCE_DIR}
+      - ${HERMES_VOICE_SOURCE_DIR}/packaging/update-daemon.sh:/usr/local/bin/hermes-voice-update-daemon:ro
+
 volumes:
   hermes-voice-data:
