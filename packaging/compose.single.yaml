@@ -1,0 +1,45 @@
+name: ${HERMES_VOICE_COMPOSE_PROJECT:-hermes-voice}
+
+services:
+  hermes-voice:
+    build:
+      context: ${HERMES_VOICE_SOURCE_DIR:-..}
+      dockerfile: packaging/all-in-one.Dockerfile
+    image: hermes-voice/all-in-one:local
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    environment:
+      CONFIG_DIR: /config
+      DATA_DIR: /data
+      WEBUI_PORT: ${WEBUI_PORT:-8765}
+      LIVEKIT_PORT: ${LIVEKIT_PORT:-7880}
+      LIVEKIT_RTC_TCP_PORT: ${LIVEKIT_RTC_TCP_PORT:-7881}
+      LIVEKIT_RTC_UDP_START: ${LIVEKIT_RTC_UDP_START:-50000}
+      LIVEKIT_RTC_UDP_END: ${LIVEKIT_RTC_UDP_END:-50100}
+      LIVEKIT_NODE_IP: ${LIVEKIT_NODE_IP:-127.0.0.1}
+      HERMES_VOICE_PUBLIC_HOST: ${HERMES_VOICE_PUBLIC_HOST:-127.0.0.1}
+      REDIS_PORT: ${REDIS_PORT:-16379}
+      TTS_PORT: ${TTS_PORT:-8890}
+      GLAADOS_DEFAULT_VOICE: ${HERMES_TTS_DEFAULT_VOICE:-bf_emma}
+      GLAADOS_DEFAULT_LANG: ${HERMES_TTS_DEFAULT_LANG:-en-gb}
+      GLAADOS_KOKORO_ONLY: "true"
+      GLAADOS_TTS_BACKEND: kokoro_glados
+      GLAADOS_POCKETTTS_WARM_ON_START: "false"
+      GLAADOS_GRAILLON_ENABLED: "true"
+      GLAADOS_EFFECTS_PRESET: ${HERMES_TTS_EFFECTS_PRESET:-g_major_pressurized}
+      GLAADOS_TUNE_KEY: ${HERMES_TTS_TUNE_KEY:-G}
+      GLAADOS_TUNE_SCALE: ${HERMES_TTS_TUNE_SCALE:-major}
+      HF_HOME: /data/huggingface
+      OMP_NUM_THREADS: ${HERMES_TTS_THREADS:-4}
+    volumes:
+      - ./config:/config
+      - hermes-voice-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${WEBUI_PORT:-8765}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hermes-voice-data:

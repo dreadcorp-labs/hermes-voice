@@ -1,0 +1,25 @@
+services:
+  hermes-livekit-redis:
+    image: redis:7-alpine
+    container_name: hermes-livekit-redis
+    command: ["redis-server", "--port", "6385", "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"]
+    network_mode: host
+    restart: unless-stopped
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: /boot/config/plugins/dockerMan/images/livekit.png
+
+  hermes-livekit:
+    image: livekit/livekit-server:v1.9.2
+    container_name: hermes-livekit
+    command: ["--config", "/etc/livekit.yaml"]
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - hermes-livekit-redis
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: /boot/config/plugins/dockerMan/images/livekit.png
+      net.unraid.docker.webui: http://[IP]:[PORT:7880]/

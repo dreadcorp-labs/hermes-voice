@@ -1,0 +1,21 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.log
+*.err.log
+*.out.log
+
+# Live credentials and local overrides.
+.env
+.env.*
+!*.env.example
+livekit.yaml
+!livekit.yaml.example
+
+# Runtime/backups from live hosts.
+*.bak*
+*.pre-*
+
+# Desktop shell local install/build output.
+desktop/node_modules/
+desktop/dist/

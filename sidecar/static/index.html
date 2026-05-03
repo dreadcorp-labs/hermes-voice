@@ -1,0 +1,3642 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hermes Voice</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020303;
+      --text: #f4f7f5;
+      --muted: #8d9893;
+      --dim: #59645f;
+      --line: rgba(255, 255, 255, 0.12);
+      --panel: rgba(8, 10, 10, 0.82);
+      --panel-solid: rgba(12, 15, 15, 0.96);
+      --green: #f2b85c;
+      --blue: #7ec7ff;
+      --gold: #f2b85c;
+      --red: #ff746d;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100svh;
+      touch-action: manipulation;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(34, 52, 50, 0.2), transparent 34%),
+        radial-gradient(circle at 15% 85%, rgba(24, 36, 43, 0.2), transparent 32%),
+        radial-gradient(circle at 88% 18%, rgba(52, 41, 24, 0.15), transparent 30%),
+        #020303;
+    }
+
+    .chrome {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: calc(18px + var(--safe-top)) 18px calc(18px + var(--safe-bottom));
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .brand {
+      min-width: 0;
+      display: none;
+      gap: 2px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.05;
+      font-weight: 720;
+    }
+
+    .substate {
+      min-height: 17px;
+      max-width: min(58vw, 540px);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.25;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 34px;
+      max-width: 45vw;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.22);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--red);
+    }
+
+    .dot.on {
+      background: var(--green);
+    }
+
+    .readout {
+      align-self: center;
+      justify-self: center;
+      width: min(500px, calc(100vw - 40px));
+      transform: translateY(min(27vh, 230px));
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .state {
+      font-size: clamp(18px, 4vw, 30px);
+      line-height: 1.08;
+      font-weight: 740;
+    }
+
+    .detail {
+      margin-top: 8px;
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .readout.tool-cue .state {
+      color: #fff7e8;
+      animation: toolReadoutFade 2.8s linear both;
+    }
+
+    .readout.tool-cue .detail {
+      color: rgba(244, 247, 245, 0.82);
+      animation: toolReadoutDetailFade 2.8s linear both;
+    }
+
+    @keyframes toolReadoutFade {
+      0% {
+        opacity: 0;
+      }
+
+      3.5% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes toolReadoutDetailFade {
+      0% {
+        opacity: 0;
+      }
+
+      3.5% {
+        opacity: 0.88;
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    .tool-ticker-layer {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .tool-ticker-line {
+      position: absolute;
+      left: 0;
+      top: var(--ticker-top, 45vh);
+      max-width: none;
+      white-space: nowrap;
+      color: rgba(242, 184, 92, 0.82);
+      font: 800 clamp(13px, 1.6vw, 22px)/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 7px rgba(242, 184, 92, 0.78),
+        0 0 22px rgba(242, 184, 92, 0.4);
+      opacity: 0;
+      transform: translateX(calc(100vw + 24px));
+      animation: toolTickerRun var(--ticker-duration, 2.1s) linear forwards;
+      will-change: transform, opacity;
+      mix-blend-mode: screen;
+    }
+
+    .tool-ticker-line span {
+      display: inline-block;
+      margin-right: 0.52em;
+    }
+
+    .tool-ticker-line .hot {
+      color: #fff4d8;
+      font-weight: 900;
+      text-shadow:
+        0 0 8px rgba(255, 244, 216, 0.92),
+        0 0 28px rgba(242, 184, 92, 0.74);
+    }
+
+    .tool-ticker-line .strong {
+      color: #ffd184;
+      font-weight: 900;
+    }
+
+    .tool-ticker-line .dim {
+      color: rgba(242, 184, 92, 0.46);
+      font-weight: 680;
+    }
+
+    @keyframes toolTickerRun {
+      0% {
+        opacity: 0;
+        transform: translateX(calc(100vw + 24px));
+      }
+
+      7% {
+        opacity: 0.95;
+      }
+
+      82% {
+        opacity: 0.95;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-115%);
+      }
+    }
+
+    .dock {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(2, 3, 3, 0.6);
+      -webkit-backdrop-filter: blur(24px);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+    }
+
+    .dock.mic-active {
+      border-color: rgba(242, 184, 92, 0.66);
+      background: rgba(40, 25, 6, 0.72);
+      box-shadow:
+        0 22px 70px rgba(0, 0, 0, 0.45),
+        0 0 34px rgba(242, 184, 92, 0.22);
+    }
+
+    button,
+    textarea,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:focus-visible,
+    textarea:focus-visible,
+    input:focus-visible {
+      outline: 2px solid rgba(242, 184, 92, 0.9);
+      outline-offset: 3px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+    }
+
+    .icon-button {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    .icon-button:hover {
+      background: rgba(255, 255, 255, 0.13);
+      transform: translateY(-1px);
+    }
+
+    .icon-button.active {
+      border-color: rgba(242, 184, 92, 0.44);
+      background: rgba(242, 184, 92, 0.14);
+    }
+
+    .icon-button.danger.active {
+      border-color: rgba(255, 116, 109, 0.5);
+      background: rgba(255, 116, 109, 0.15);
+    }
+
+    .icon-button.mic-active {
+      color: #fff4dc;
+      border-color: rgba(242, 184, 92, 0.78);
+      background: rgba(242, 184, 92, 0.18);
+      box-shadow:
+        inset 0 0 0 1px rgba(242, 184, 92, 0.16),
+        0 0 26px rgba(242, 184, 92, 0.34);
+    }
+
+    #mute::after {
+      content: "";
+      position: absolute;
+      width: 27px;
+      height: 3px;
+      border-radius: 999px;
+      background: #ff4d45;
+      box-shadow: 0 0 10px rgba(255, 77, 69, 0.48);
+      transform: rotate(-42deg);
+      opacity: 1;
+      transition: opacity 130ms ease;
+      pointer-events: none;
+    }
+
+    #mute.mic-active::after {
+      opacity: 0;
+    }
+
+    .icon {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .panel {
+      position: fixed;
+      left: 50%;
+      bottom: calc(88px + var(--safe-bottom));
+      width: min(720px, calc(100vw - 24px));
+      max-height: min(56vh, 480px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-solid);
+      -webkit-backdrop-filter: blur(28px);
+      backdrop-filter: blur(28px);
+      box-shadow: 0 26px 84px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+      opacity: 0;
+      transform: translate(-50%, 18px);
+      transition: transform 210ms ease, opacity 210ms ease;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .panel.open {
+      opacity: 1;
+      transform: translate(-50%, 0);
+      pointer-events: auto;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 78px;
+      max-height: 190px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      padding: 12px 13px;
+      line-height: 1.4;
+    }
+
+    textarea::placeholder {
+      color: var(--dim);
+    }
+
+    select,
+    input[type="text"],
+    input[type="number"],
+    .settings-form textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      padding: 8px 10px;
+    }
+
+    .settings-form textarea {
+      min-height: 142px;
+      resize: vertical;
+      line-height: 1.42;
+    }
+
+    .send {
+      min-width: 86px;
+      padding: 0 18px;
+      border-color: rgba(242, 184, 92, 0.4);
+      background: rgba(242, 184, 92, 0.16);
+      font-weight: 720;
+    }
+
+    .chat-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+
+    .panel-head {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel-head a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .settings-summary {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #dce2df;
+    }
+
+    .log {
+      min-height: 190px;
+      overflow: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #dce2df;
+      font: 13px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .chat-panel .composer {
+      border-top: 1px solid var(--line);
+      grid-template-columns: 1fr;
+    }
+
+    .composer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .attach {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-color: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .file-input {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .attachment-tray {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .attachment-chip {
+      max-width: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 8px;
+      border: 1px solid rgba(126, 199, 255, 0.26);
+      border-radius: 999px;
+      background: rgba(126, 199, 255, 0.09);
+      color: #dce2df;
+      font-size: 12px;
+    }
+
+    .attachment-chip span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .attachment-chip button {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .settings-panel {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .settings-form {
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      gap: 13px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label,
+    .toggle-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .toggle-row {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 12px;
+    }
+
+    .menu-row {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+    }
+
+    .menu-row span:first-child {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .menu-row span:last-child {
+      color: var(--gold);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .toggle-row input {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--green);
+    }
+
+    .submenu-body {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      align-content: start;
+      overflow: auto;
+    }
+
+    .voice-editor {
+      min-height: clamp(360px, 50vh, 620px);
+      max-height: none;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .voice-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .settings-page {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: var(--panel-solid);
+      opacity: 0;
+      transform: translateX(100%);
+      transition: transform 210ms ease, opacity 210ms ease;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .settings-page.open {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .back-action {
+      min-height: 34px;
+      padding: 0 10px 0 0;
+      border: 0;
+      background: transparent;
+      color: var(--gold);
+      font-size: 13px;
+    }
+
+    .small-action {
+      min-height: 34px;
+      width: fit-content;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--line);
+    }
+
+    .entry {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .entry-avatar {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .entry-body {
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.055);
+      padding: 8px 10px 9px;
+    }
+
+    .entry-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 4px;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .entry-text {
+      color: #e7ece9;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .entry.user .entry-avatar {
+      color: var(--green);
+      background: rgba(242, 184, 92, 0.1);
+      font-size: 11px;
+      font-weight: 780;
+    }
+
+    .entry.assistant .entry-avatar {
+      color: var(--gold);
+      background: rgba(242, 184, 92, 0.1);
+      font-size: 11px;
+      font-weight: 780;
+    }
+
+    .entry.tool .entry-body {
+      border-color: rgba(242, 184, 92, 0.22);
+      background: rgba(242, 184, 92, 0.08);
+    }
+
+    .entry.tool .entry-avatar {
+      color: var(--gold);
+      background: rgba(242, 184, 92, 0.12);
+    }
+
+    .entry.system {
+      grid-template-columns: 1fr;
+    }
+
+    .entry.system .entry-avatar {
+      display: none;
+    }
+
+    .entry.system .entry-body {
+      padding: 6px 9px;
+      border-style: dashed;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .entry.system .entry-meta {
+      margin: 0;
+      font-weight: 560;
+    }
+
+    .entry.system .entry-text {
+      display: none;
+    }
+
+    .meter {
+      position: fixed;
+      left: 50%;
+      top: calc(76px + var(--safe-top));
+      width: min(320px, 54vw);
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(242, 184, 92, 0.08);
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .meter > span {
+      display: block;
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: var(--meter-level, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(242, 184, 92, 0), rgba(255, 209, 132, 0.98) 45%, #ffd184 50%, rgba(255, 209, 132, 0.98) 55%, rgba(242, 184, 92, 0));
+      transform: translateX(-50%);
+      transition: width 70ms linear;
+    }
+
+    .affect-readout {
+      position: fixed;
+      left: 50%;
+      top: calc(88px + var(--safe-top));
+      min-height: 18px;
+      max-width: min(360px, 68vw);
+      color: rgba(255, 209, 132, 0.9);
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 680;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      opacity: 0;
+      transform: translateX(-50%);
+      text-shadow: 0 0 14px rgba(242, 184, 92, 0.42);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 180ms ease;
+    }
+
+    .affect-readout.visible {
+      opacity: 1;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      top: calc(74px + var(--safe-top));
+      max-width: min(580px, calc(100vw - 28px));
+      padding: 11px 13px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      background: rgba(10, 12, 12, 0.88);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      color: #dce2df;
+      font-size: 13px;
+      line-height: 1.35;
+      opacity: 0;
+      transform: translate(-50%, -8px);
+      transition: transform 180ms ease, opacity 180ms ease;
+      pointer-events: none;
+      z-index: 7;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .name-field {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 620px) {
+      .chrome {
+        padding-inline: 14px;
+      }
+
+      h1 {
+        font-size: 18px;
+      }
+
+      .substate {
+        max-width: 56vw;
+      }
+
+      .connection {
+        max-width: 68vw;
+      }
+
+      .readout {
+        transform: translateY(24vh);
+      }
+
+      .dock {
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .icon-button {
+        width: 46px;
+        height: 46px;
+      }
+
+      .composer {
+        grid-template-columns: 1fr;
+      }
+
+      .send {
+        min-height: 44px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .panel,
+      .icon-button,
+      .readout.tool-cue .state,
+      .readout.tool-cue .detail {
+        transition: none;
+        animation: none;
+      }
+
+      .tool-ticker-line {
+        --ticker-duration: 4.2s;
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="orbCanvas" aria-hidden="true"></canvas>
+  <div id="toolTickerLayer" class="tool-ticker-layer" aria-hidden="true"></div>
+  <input id="name" class="name-field" value="Guest" autocomplete="name" aria-label="Name">
+
+  <div class="chrome">
+    <header class="topbar">
+      <div class="brand" aria-hidden="true">
+        <h1>Hermes Voice</h1>
+        <div id="topDetail" class="substate">Opening the voice room.</div>
+      </div>
+      <div class="connection">
+        <span id="dot" class="dot"></span>
+        <span id="status">Connecting</span>
+      </div>
+    </header>
+
+    <section class="readout" aria-live="polite">
+      <div id="stateLabel" class="state">Starting</div>
+      <div id="stateDetail" class="detail">The voice room will open automatically.</div>
+    </section>
+
+    <nav class="dock" aria-label="Voice controls">
+      <button id="mute" class="icon-button danger" type="button" aria-label="Mute microphone" title="Mute microphone" disabled>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <path d="M12 19v3"></path>
+        </svg>
+      </button>
+      <button id="chatToggle" class="icon-button" type="button" aria-label="Open chat" title="Open chat">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"></path>
+          <path d="M8 9h8"></path>
+          <path d="M8 13h5"></path>
+        </svg>
+      </button>
+      <button id="settingsToggle" class="icon-button" type="button" aria-label="Open settings" title="Open settings">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.29.36.68.6 1.1.6H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path>
+        </svg>
+      </button>
+      <button id="reconnect" class="icon-button" type="button" aria-label="Reconnect" title="Reconnect">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+          <path d="M21 3v6h-6"></path>
+        </svg>
+      </button>
+    </nav>
+  </div>
+
+  <div class="meter" aria-hidden="true"><span id="meter"></span></div>
+  <div id="affectReadout" class="affect-readout" aria-live="polite"></div>
+
+  <section id="chatPanel" class="panel chat-panel" aria-label="Chat panel">
+    <div class="panel-head">
+      <span>Chat</span>
+    </div>
+    <div id="log" class="log"></div>
+    <div class="composer">
+      <textarea id="typedText" aria-label="Typed message" placeholder="Type to Hermes"></textarea>
+      <div id="attachmentTray" class="attachment-tray"></div>
+      <div class="composer-actions">
+        <button id="attachFile" class="attach" type="button" aria-label="Attach files" title="Attach files">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21.4 11.6 12 21a6 6 0 0 1-8.5-8.5l9.7-9.7a4 4 0 0 1 5.7 5.7l-9.8 9.8a2 2 0 0 1-2.8-2.8l8.9-8.9"></path>
+          </svg>
+        </button>
+        <button id="sendText" class="send" type="button" disabled>Send</button>
+      </div>
+      <input id="fileInput" class="file-input" type="file" multiple>
+    </div>
+  </section>
+
+  <section id="settingsPanel" class="panel settings-panel" aria-label="Settings panel">
+    <div class="panel-head">
+      <span>Settings</span>
+    </div>
+    <div id="settingsHome" class="settings-form">
+      <div class="field">
+        <label for="modelSelect">Voice model</label>
+        <select id="modelSelect"></select>
+      </div>
+      <div class="field">
+        <label for="reasoningSelect">Reasoning</label>
+        <select id="reasoningSelect">
+          <option value="none">None</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="xhigh">Extra high</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ttsSelect">TTS provider</label>
+        <select id="ttsSelect"></select>
+      </div>
+      <div class="field">
+        <label for="audioInputSelect">Audio input</label>
+        <select id="audioInputSelect"></select>
+      </div>
+      <div class="field">
+        <label for="audioOutputSelect">Audio output</label>
+        <select id="audioOutputSelect"></select>
+      </div>
+      <div class="field">
+        <label for="micModeSelect">Mic mode</label>
+        <select id="micModeSelect">
+          <option value="open">Open mic / hardware gated</option>
+          <option value="toggle">Software toggle</option>
+        </select>
+      </div>
+      <div id="desktopShortcutField" class="field" hidden>
+        <label for="desktopShortcutSelect">Desktop mic key</label>
+        <select id="desktopShortcutSelect"></select>
+      </div>
+      <div class="field">
+        <label for="sttSelect">STT provider</label>
+        <select id="sttSelect"></select>
+      </div>
+      <div class="field">
+        <label for="sttModelInput">STT model</label>
+        <input id="sttModelInput" type="text" placeholder="Provider default">
+      </div>
+      <div class="toggle-row">
+        <span>Emotion recognition</span>
+        <input id="emotionToggle" type="checkbox" aria-label="Emotion recognition">
+      </div>
+      <button id="voiceBehaviorOpen" class="menu-row" type="button">
+        <span>Voice behavior</span>
+        <span aria-hidden="true">&gt;</span>
+      </button>
+    </div>
+    <div id="voiceBehaviorPage" class="settings-page" aria-hidden="true">
+      <div class="panel-head">
+        <button id="voiceBehaviorBack" class="back-action" type="button">&lt; Settings</button>
+        <span>Voice behavior</span>
+      </div>
+      <div class="submenu-body">
+        <label for="voiceInstructionsInput">Injected Hermes Voice instructions</label>
+        <textarea id="voiceInstructionsInput" class="voice-editor" spellcheck="true"></textarea>
+        <div class="voice-actions">
+          <button id="voiceBehaviorBackBottom" class="small-action" type="button">&lt; Settings</button>
+          <button id="saveVoiceInstructions" class="small-action" type="button">Save</button>
+          <button id="resetVoiceInstructions" class="small-action" type="button">Back to defaults</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module">
+    import {
+      Room,
+      RoomEvent,
+      Track,
+      createLocalAudioTrack,
+    } from './static/livekit-client.esm.mjs';
+
+    const canvas = document.getElementById('orbCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const statusEl = document.getElementById('status');
+    const dotEl = document.getElementById('dot');
+    const topDetailEl = document.getElementById('topDetail');
+    const readoutEl = document.querySelector('.readout');
+    const stateLabelEl = document.getElementById('stateLabel');
+    const stateDetailEl = document.getElementById('stateDetail');
+    const toolTickerLayerEl = document.getElementById('toolTickerLayer');
+    const logEl = document.getElementById('log');
+    const meterEl = document.getElementById('meter');
+    const affectReadoutEl = document.getElementById('affectReadout');
+    const muteBtn = document.getElementById('mute');
+    const reconnectBtn = document.getElementById('reconnect');
+    const chatToggleBtn = document.getElementById('chatToggle');
+    const settingsToggleBtn = document.getElementById('settingsToggle');
+    const chatPanel = document.getElementById('chatPanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const voiceBehaviorPageEl = document.getElementById('voiceBehaviorPage');
+    const nameEl = document.getElementById('name');
+    const typedTextEl = document.getElementById('typedText');
+    const sendTextBtn = document.getElementById('sendText');
+    const attachFileBtn = document.getElementById('attachFile');
+    const fileInputEl = document.getElementById('fileInput');
+    const attachmentTrayEl = document.getElementById('attachmentTray');
+    const modelSelectEl = document.getElementById('modelSelect');
+    const reasoningSelectEl = document.getElementById('reasoningSelect');
+    const ttsSelectEl = document.getElementById('ttsSelect');
+    const audioInputSelectEl = document.getElementById('audioInputSelect');
+    const audioOutputSelectEl = document.getElementById('audioOutputSelect');
+    const micModeSelectEl = document.getElementById('micModeSelect');
+    const desktopShortcutFieldEl = document.getElementById('desktopShortcutField');
+    const desktopShortcutSelectEl = document.getElementById('desktopShortcutSelect');
+    const sttSelectEl = document.getElementById('sttSelect');
+    const sttModelInputEl = document.getElementById('sttModelInput');
+    const emotionToggleEl = document.getElementById('emotionToggle');
+    const voiceBehaviorOpenBtn = document.getElementById('voiceBehaviorOpen');
+    const voiceBehaviorBackBtn = document.getElementById('voiceBehaviorBack');
+    const voiceBehaviorBackBottomBtn = document.getElementById('voiceBehaviorBackBottom');
+    const voiceInstructionsInputEl = document.getElementById('voiceInstructionsInput');
+    const saveVoiceInstructionsBtn = document.getElementById('saveVoiceInstructions');
+    const resetVoiceInstructionsBtn = document.getElementById('resetVoiceInstructions');
+    const toastEl = document.getElementById('toast');
+    const dockEl = document.querySelector('.dock');
+
+    const THINKING_SOUND_LAYERS = [
+      { url: '/static/audio/thinking-bass-loop.m4a', label: 'bass', volume: 0.1 },
+      { url: '/static/audio/thinking-pad-loop.m4a', label: 'pad', volume: 0.13 },
+      { url: '/static/audio/thinking-texture-loop.m4a', label: 'texture', volume: 0.105 },
+    ];
+    const PIANO_NOTE_SAMPLES = [
+      '/static/audio/piano-note-1.m4a',
+      '/static/audio/piano-note-2.m4a',
+      '/static/audio/piano-note-3.m4a',
+      '/static/audio/piano-note-4.m4a',
+    ];
+    const THINKING_MASTER_VOLUME = 1;
+    const THINKING_FADE_IN_SECONDS = 0.9;
+    const THINKING_FADE_OUT_SECONDS = 0.45;
+    const THINKING_LOOP_OVERLAP_SECONDS = 1.15;
+    const TOOL_LAYER_MIN_SPACING_SECONDS = 5;
+    const PIANO_NOTE_VOLUME = 0.19;
+    const PIANO_NOTE_MAX_SECONDS = 4;
+    const ENABLE_VOICE_BARGE_IN = true;
+    const INTERRUPT_MIC_THRESHOLD = 0.38;
+    const INTERRUPT_REMOTE_RATIO = 2.2;
+    const INTERRUPT_MIN_REMOTE_MARGIN = 0.08;
+    const INTERRUPT_HOLD_MS = 520;
+    const INTERRUPT_COOLDOWN_MS = 2200;
+    const INTERRUPT_AFTER_SPEAKING_MS = 900;
+    const TAU = Math.PI * 2;
+    const AGENT_IDENTITY = 'hermes-livekit-agent';
+    const AGENT_NAME = 'Hermes Voice';
+    const desktopShell = Boolean(window.hermesDesktop) || new URLSearchParams(window.location.search).get('desktop') === '1';
+    const savedMicMode = localStorage.getItem('hermes.micMode');
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = matchMedia('(max-width: 620px)').matches;
+    const particleCount = reducedMotion ? (isMobile ? 336 : 560) : (isMobile ? 1120 : 2080);
+
+    let room = null;
+    let localAudioTrack = null;
+    let participantIdentity = '';
+    let micMode = savedMicMode === 'toggle' ? 'toggle' : 'open';
+    let muted = micMode !== 'open';
+    let currentState = 'starting';
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let particles = [];
+    let lastFrame = performance.now();
+    let spin = 0;
+    let micLevel = 0;
+    let remoteLevel = 0;
+    let remoteBands = { low: 0, mid: 0, high: 0, transient: 0 };
+    let displayAudioLevel = 0;
+    let toastTimer = null;
+    let lastConnectAttempt = 0;
+    let audioContext = null;
+    let analyserNodes = [];
+    let remoteAudioEls = [];
+    let thinkingLayers = [];
+    let thinkingMasterGain = null;
+    let thinkingLayerOrder = [];
+    let thinkingLayerCursor = 0;
+    let thinkingPulseActive = false;
+    let firstToolLayerAt = 0;
+    let pianoNoteBuffers = [];
+    let activePianoVoices = [];
+    let lastPianoNoteIndex = -1;
+    let feedbackAudioPromise = null;
+    let visualCueQueue = [];
+    let activeVisualCue = null;
+    let visualCueStartedAt = 0;
+    let visualCuePeak = 0;
+    let lastVisualCueKey = '';
+    let lastVisualCueAt = 0;
+    let errorShapePoints = null;
+    let toolReadoutQueue = [];
+    let toolReadoutActive = false;
+    let toolReadoutTimer = null;
+    let toolReadoutId = 0;
+    let toolTickerId = 0;
+    let activeToolTickers = [];
+    let speakingStateStartedAt = 0;
+    let interruptStartedAt = 0;
+    let lastInterruptAt = 0;
+    let affectReadoutTimer = null;
+    let attachedFiles = [];
+    let runtimeSettings = null;
+    let settingsSaveTimer = null;
+    let settingsHydrating = false;
+    let audioInputDevices = [];
+    let audioOutputDevices = [];
+    let selectedAudioInputId = localStorage.getItem('hermes.audioInputId') || '';
+    let selectedAudioOutputId = localStorage.getItem('hermes.audioOutputId') || '';
+    let desktopShortcutHydrating = false;
+    let micAnalyserStop = null;
+    const visualMaskCanvas = document.createElement('canvas');
+    const visualMaskCtx = visualMaskCanvas.getContext('2d', { willReadFrequently: true });
+
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 4200);
+    }
+
+    function formatTime(timestamp) {
+      const date = timestamp ? new Date(timestamp * 1000) : new Date();
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    }
+
+    function appendTranscriptEntry(type, label, text, options = {}) {
+      const entry = document.createElement('div');
+      entry.className = `entry ${type}`;
+      const avatar = document.createElement('div');
+      avatar.className = 'entry-avatar';
+      avatar.textContent = options.icon || (
+        type === 'user' ? 'You' : type === 'assistant' ? 'HV' : type === 'tool' ? '⚙' : ''
+      );
+      const body = document.createElement('div');
+      body.className = 'entry-body';
+      const meta = document.createElement('div');
+      meta.className = 'entry-meta';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const time = document.createElement('span');
+      time.textContent = formatTime(options.at);
+      meta.append(name, time);
+      if (options.badge) {
+        const badge = document.createElement('span');
+        badge.textContent = options.badge;
+        badge.style.color = 'var(--gold)';
+        meta.append(badge);
+      }
+      body.append(meta);
+      if (text) {
+        const content = document.createElement('div');
+        content.className = 'entry-text';
+        content.textContent = text;
+        body.append(content);
+      }
+      if (type !== 'system') entry.append(avatar);
+      entry.append(body);
+      logEl.append(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function log(line) {
+      appendTranscriptEntry('system', line, '');
+    }
+
+    function formatBytes(bytes) {
+      const value = Number(bytes) || 0;
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function renderAttachments() {
+      attachmentTrayEl.textContent = '';
+      attachedFiles.forEach((file, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'attachment-chip';
+        const label = document.createElement('span');
+        label.textContent = `${file.name} · ${formatBytes(file.size)}`;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', `Remove ${file.name}`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => {
+          attachedFiles.splice(index, 1);
+          renderAttachments();
+        });
+        chip.append(label, remove);
+        attachmentTrayEl.append(chip);
+      });
+    }
+
+    function readAttachment(file) {
+      return new Promise((resolve) => {
+        const base = {
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+        };
+        const readableName = /\.(txt|md|markdown|json|csv|xml|yaml|yml|log)$/i.test(file.name);
+        const readableType = /^(text\/|application\/(json|xml|csv|x-yaml|yaml)|.*markdown)/i.test(file.type || '');
+        if (file.size > 512 * 1024 || !(readableType || readableName)) {
+          resolve(base);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve({ ...base, text: String(reader.result || '').slice(0, 32000) });
+        reader.onerror = () => resolve(base);
+        reader.readAsText(file);
+      });
+    }
+
+    async function buildAttachmentPayload() {
+      return Promise.all(attachedFiles.map(readAttachment));
+    }
+
+    function populateSelect(select, choices) {
+      select.textContent = '';
+      choices.forEach((choice) => {
+        const option = document.createElement('option');
+        option.value = choice.id;
+        option.textContent = choice.name || choice.id;
+        select.append(option);
+      });
+    }
+
+    function renderAudioInputSelect(currentDeviceId = '') {
+      const previous = audioInputSelectEl.value || selectedAudioInputId;
+      audioInputSelectEl.textContent = '';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'System default';
+      audioInputSelectEl.append(defaultOption);
+      audioInputDevices.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = device.label || `Microphone ${index + 1}`;
+        audioInputSelectEl.append(option);
+      });
+      const deviceIds = new Set(audioInputDevices.map((device) => device.deviceId));
+      const preferred = selectedAudioInputId || previous || currentDeviceId || '';
+      audioInputSelectEl.value = deviceIds.has(preferred) ? preferred : '';
+      audioInputSelectEl.disabled = !navigator.mediaDevices?.enumerateDevices;
+    }
+
+    function renderAudioOutputSelect() {
+      const previous = audioOutputSelectEl.value || selectedAudioOutputId;
+      audioOutputSelectEl.textContent = '';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'System default';
+      audioOutputSelectEl.append(defaultOption);
+      audioOutputDevices.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = device.label || `Output ${index + 1}`;
+        audioOutputSelectEl.append(option);
+      });
+      const deviceIds = new Set(audioOutputDevices.map((device) => device.deviceId));
+      const preferred = selectedAudioOutputId || previous || '';
+      audioOutputSelectEl.value = deviceIds.has(preferred) ? preferred : '';
+      audioOutputSelectEl.disabled = !navigator.mediaDevices?.enumerateDevices;
+      if (!('setSinkId' in HTMLMediaElement.prototype) && !AudioContext.prototype.setSinkId) {
+        audioOutputSelectEl.disabled = true;
+        audioOutputSelectEl.title = 'This browser does not support choosing an audio output.';
+      } else {
+        audioOutputSelectEl.title = '';
+      }
+    }
+
+    function renderDesktopShortcutConfig(config = {}) {
+      if (!desktopShell || !desktopShortcutFieldEl || !desktopShortcutSelectEl) return;
+      desktopShortcutHydrating = true;
+      desktopShortcutFieldEl.hidden = false;
+      populateSelect(desktopShortcutSelectEl, config.shortcutChoices || []);
+      desktopShortcutSelectEl.value = config.shortcut || 'F13';
+      desktopShortcutSelectEl.title = config.shortcutRegistered === false
+        ? 'Shortcut is not registered. Another app may already use it.'
+        : 'Global desktop mic toggle.';
+      desktopShortcutHydrating = false;
+    }
+
+    function renderMicModeSetting() {
+      if (!micModeSelectEl) return;
+      micModeSelectEl.value = micMode;
+      micModeSelectEl.title = micMode === 'open'
+        ? 'The app stays live and external hardware controls when speech reaches it.'
+        : 'The app starts muted and the mic button or desktop key toggles it.';
+    }
+
+    async function setMicMode(nextMode) {
+      micMode = nextMode === 'toggle' ? 'toggle' : 'open';
+      localStorage.setItem('hermes.micMode', micMode);
+      renderMicModeSetting();
+      await setMicrophoneMuted(micMode !== 'open', micMode === 'open'
+        ? 'Mic mode: open mic / hardware gated'
+        : 'Mic mode: software toggle');
+    }
+
+    async function loadDesktopConfig() {
+      if (!desktopShell || !window.hermesDesktop?.getConfig) return;
+      try {
+        renderDesktopShortcutConfig(await window.hermesDesktop.getConfig());
+      } catch (err) {
+        log(`Desktop shortcut settings unavailable: ${err.message || err}`);
+      }
+    }
+
+    async function saveDesktopShortcut() {
+      if (desktopShortcutHydrating || !window.hermesDesktop?.setShortcut) return;
+      try {
+        const config = await window.hermesDesktop.setShortcut(desktopShortcutSelectEl.value);
+        renderDesktopShortcutConfig(config);
+        showToast(config.shortcutRegistered === false ? 'Mic key could not register.' : 'Mic key updated.');
+      } catch (err) {
+        showToast('Mic key did not update.');
+        log(`Desktop shortcut update failed: ${err.message || err}`);
+      }
+    }
+
+    async function refreshAudioInputDevices() {
+      if (!navigator.mediaDevices?.enumerateDevices) {
+        audioInputDevices = [];
+        renderAudioInputSelect();
+        return;
+      }
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        audioInputDevices = devices.filter((device) => device.kind === 'audioinput');
+        audioOutputDevices = devices.filter((device) => device.kind === 'audiooutput');
+        const currentDeviceId = localAudioTrack?.mediaStreamTrack?.getSettings?.().deviceId || '';
+        if (selectedAudioInputId && !audioInputDevices.some((device) => device.deviceId === selectedAudioInputId)) {
+          selectedAudioInputId = '';
+          localStorage.removeItem('hermes.audioInputId');
+        }
+        if (selectedAudioOutputId && !audioOutputDevices.some((device) => device.deviceId === selectedAudioOutputId)) {
+          selectedAudioOutputId = '';
+          localStorage.removeItem('hermes.audioOutputId');
+        }
+        renderAudioInputSelect(currentDeviceId);
+        renderAudioOutputSelect();
+      } catch (err) {
+        log(`Audio devices unavailable: ${err.message || err}`);
+        audioInputDevices = [];
+        audioOutputDevices = [];
+        renderAudioInputSelect();
+        renderAudioOutputSelect();
+      }
+    }
+
+    async function applyAudioOutputToElement(element) {
+      if (!element || typeof element.setSinkId !== 'function') return;
+      await element.setSinkId(selectedAudioOutputId || '');
+    }
+
+    async function applyAudioContextOutput() {
+      if (!audioContext || typeof audioContext.setSinkId !== 'function') return;
+      await audioContext.setSinkId(selectedAudioOutputId || '');
+    }
+
+    async function switchAudioOutput() {
+      selectedAudioOutputId = audioOutputSelectEl.value || '';
+      if (selectedAudioOutputId) {
+        localStorage.setItem('hermes.audioOutputId', selectedAudioOutputId);
+      } else {
+        localStorage.removeItem('hermes.audioOutputId');
+      }
+      audioOutputSelectEl.disabled = true;
+      try {
+        await Promise.all(remoteAudioEls.map(applyAudioOutputToElement));
+        await applyAudioContextOutput();
+        showToast('Audio output changed.');
+      } catch (err) {
+        showToast('Audio output did not switch.');
+        log(`AUDIO OUTPUT ERROR: ${err.message || err}`);
+      } finally {
+        audioOutputSelectEl.disabled = false;
+      }
+    }
+
+    function renderSettings(settings) {
+      runtimeSettings = settings;
+      settingsHydrating = true;
+      populateSelect(modelSelectEl, settings.choices?.models || []);
+      populateSelect(ttsSelectEl, settings.choices?.ttsBackends || []);
+      populateSelect(sttSelectEl, settings.choices?.sttProviders || []);
+      modelSelectEl.value = settings.model || 'kimi-k2.6';
+      reasoningSelectEl.value = settings.reasoningEffort || 'none';
+      ttsSelectEl.value = settings.ttsBackend || 'hermes_voice_native';
+      sttSelectEl.value = settings.sttProvider || 'auto';
+      sttModelInputEl.value = settings.sttModel || '';
+      voiceInstructionsInputEl.value = settings.voiceInstructions || settings.defaultVoiceInstructions || '';
+      emotionToggleEl.checked = Boolean(settings.emotionRecognition);
+      settingsHydrating = false;
+    }
+
+    async function loadSettings() {
+      try {
+        const resp = await fetch('/settings', { cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        renderSettings(await resp.json());
+      } catch (err) {
+        log(`Settings unavailable: ${err.message || err}`);
+      }
+    }
+
+    async function saveSettings(partial) {
+      try {
+        const resp = await fetch('/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(partial),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        renderSettings(await resp.json());
+        showToast('Settings saved.');
+      } catch (err) {
+        showToast('Settings did not save.');
+        log(`SETTINGS ERROR: ${err.message || err}`);
+      }
+    }
+
+    function queueSettingsSave(partial) {
+      if (settingsHydrating) return;
+      window.clearTimeout(settingsSaveTimer);
+      settingsSaveTimer = window.setTimeout(() => saveSettings(partial), 180);
+    }
+
+    function setStatus(text, connected) {
+      statusEl.textContent = text;
+      dotEl.classList.toggle('on', connected);
+    }
+
+    function formatPercent(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number <= 0) return '';
+      return `${Math.round(Math.max(0, Math.min(1, number)) * 100)}%`;
+    }
+
+    function setAffectReadout(data) {
+      const affect = String(data?.affect || '').trim();
+      if (!affect) return;
+      const confidence = formatPercent(data.confidence);
+      const calibrated = data.local_emotion_guardrail_applied ? 'calibrated' : '';
+      const pieces = [affect.replace(/_/g, ' '), calibrated, confidence].filter(Boolean);
+      affectReadoutEl.textContent = pieces.join(' · ');
+      affectReadoutEl.title = String(data.tone_summary || '');
+      affectReadoutEl.classList.add('visible');
+      window.clearTimeout(affectReadoutTimer);
+      affectReadoutTimer = window.setTimeout(() => {
+        affectReadoutEl.classList.remove('visible');
+      }, 14000);
+    }
+
+    const TOOL_READOUT_MS = 2800;
+
+    function clearToolReadout(dropQueue = true) {
+      window.clearTimeout(toolReadoutTimer);
+      toolReadoutTimer = null;
+      toolReadoutId += 1;
+      toolReadoutActive = false;
+      if (dropQueue) toolReadoutQueue = [];
+      readoutEl.classList.remove('tool-cue');
+      stateLabelEl.textContent = '';
+      stateDetailEl.textContent = '';
+    }
+
+    function labelsForState(state) {
+      const labels = {
+        starting: 'Starting',
+        connecting: 'Connecting',
+        listening: '',
+        thinking: '',
+        speaking: '',
+        error: 'Needs attention',
+        disconnected: 'Disconnected',
+      };
+      const details = {
+        starting: 'The voice room will open automatically.',
+        connecting: 'Opening the voice room.',
+        listening: '',
+        thinking: '',
+        speaking: '',
+        error: 'Open chat for details.',
+        disconnected: 'Tap reconnect when ready.',
+      };
+      return {
+        label: Object.prototype.hasOwnProperty.call(labels, state) ? labels[state] : state,
+        detail: Object.prototype.hasOwnProperty.call(details, state) ? details[state] : '',
+      };
+    }
+
+    function setAgentState(state, detail = '') {
+      const previousState = currentState;
+      currentState = state || 'listening';
+      if (currentState === 'speaking' && previousState !== 'speaking') {
+        speakingStateStartedAt = performance.now();
+      } else if (currentState !== 'speaking') {
+        speakingStateStartedAt = 0;
+      }
+      const copy = labelsForState(currentState);
+      const finalDetail = detail || copy.detail;
+      if (currentState !== 'thinking') {
+        clearToolReadout();
+        stateLabelEl.textContent = copy.label || '';
+        stateDetailEl.textContent = finalDetail || '';
+        topDetailEl.textContent = finalDetail;
+      } else if (!toolReadoutActive) {
+        stateLabelEl.textContent = '';
+        stateDetailEl.textContent = '';
+        topDetailEl.textContent = finalDetail;
+      }
+      if (currentState === 'thinking') {
+        startThinkingSound();
+      } else {
+        stopThinkingSound();
+      }
+    }
+
+    function closeVoiceBehaviorPage() {
+      voiceBehaviorPageEl.classList.remove('open');
+      voiceBehaviorPageEl.setAttribute('aria-hidden', 'true');
+    }
+
+    function openPanel(panelName) {
+      const showChat = panelName === 'chat' && !chatPanel.classList.contains('open');
+      const showSettings = panelName === 'settings' && !settingsPanel.classList.contains('open');
+      chatPanel.classList.toggle('open', showChat);
+      settingsPanel.classList.toggle('open', showSettings);
+      chatToggleBtn.classList.toggle('active', showChat);
+      settingsToggleBtn.classList.toggle('active', showSettings);
+      if (!showSettings || panelName === 'settings') {
+        closeVoiceBehaviorPage();
+      }
+      if (showChat) {
+        window.setTimeout(() => typedTextEl.focus(), 120);
+      }
+    }
+
+    async function ensureFeedbackAudio() {
+      const context = await ensureAudioContext();
+      if (!thinkingMasterGain) {
+        thinkingMasterGain = context.createGain();
+        thinkingMasterGain.gain.value = THINKING_MASTER_VOLUME;
+        thinkingMasterGain.connect(context.destination);
+      }
+      const loadBuffer = async (url) => {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`could not load ${url}`);
+        return context.decodeAudioData(await resp.arrayBuffer());
+      };
+      if (!thinkingLayers.length) {
+        thinkingLayers = await Promise.all(THINKING_SOUND_LAYERS.map(async (layer) => {
+          const buffer = await loadBuffer(layer.url);
+          const gain = context.createGain();
+          gain.gain.value = 0;
+          gain.connect(thinkingMasterGain);
+          return {
+            ...layer,
+            buffer,
+            gain,
+            sources: new Set(),
+            timers: new Set(),
+            generation: 0,
+            active: false,
+          };
+        }));
+      }
+      if (!pianoNoteBuffers.length) {
+        pianoNoteBuffers = await Promise.all(PIANO_NOTE_SAMPLES.map(loadBuffer));
+      }
+      return thinkingLayers;
+    }
+
+    function warmFeedbackAudio() {
+      if (!feedbackAudioPromise) {
+        feedbackAudioPromise = ensureFeedbackAudio().catch((err) => {
+          feedbackAudioPromise = null;
+          throw err;
+        });
+      }
+      return feedbackAudioPromise;
+    }
+
+    async function unlockThinkingSound() {
+      try {
+        await ensureAudioContext();
+        warmFeedbackAudio().catch(() => {});
+      } catch (_) {
+        // Browsers may block this until a user gesture; the UI still works.
+      }
+    }
+
+    function shuffleIndexes(length) {
+      const indexes = Array.from({ length }, (_, index) => index);
+      for (let i = indexes.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
+      }
+      return indexes;
+    }
+
+    function rampGain(gainNode, target, seconds) {
+      if (!audioContext || !gainNode) return;
+      const now = audioContext.currentTime;
+      gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+      gainNode.gain.linearRampToValueAtTime(Math.max(0, target), now + Math.max(0.01, seconds));
+    }
+
+    function clearLayerTimers(layer) {
+      layer.timers.forEach((timer) => window.clearTimeout(timer));
+      layer.timers.clear();
+    }
+
+    function stopLayerSources(layer, delaySeconds = 0) {
+      const stopDelayMs = Math.max(0, delaySeconds * 1000);
+      const sources = Array.from(layer.sources);
+      layer.sources.clear();
+      const stopSources = () => {
+        sources.forEach((source) => {
+          try {
+            source.stop();
+          } catch (_) {}
+        });
+      };
+      if (stopDelayMs > 0) {
+        window.setTimeout(stopSources, stopDelayMs);
+      } else {
+        stopSources();
+      }
+    }
+
+    function scheduleLayerSource(layer, startAt, generation) {
+      if (!audioContext || generation !== layer.generation) return;
+      const duration = layer.buffer.duration;
+      const overlap = Math.min(THINKING_LOOP_OVERLAP_SECONDS, Math.max(0.05, duration * 0.25));
+      const safeStartAt = Math.max(startAt, audioContext.currentTime + 0.01);
+      const endAt = safeStartAt + duration;
+      const source = audioContext.createBufferSource();
+      const sourceGain = audioContext.createGain();
+      source.buffer = layer.buffer;
+      sourceGain.gain.setValueAtTime(0.0001, safeStartAt);
+      sourceGain.gain.linearRampToValueAtTime(1, safeStartAt + overlap);
+      sourceGain.gain.setValueAtTime(1, Math.max(safeStartAt + overlap, endAt - overlap));
+      sourceGain.gain.linearRampToValueAtTime(0.0001, endAt);
+      source.connect(sourceGain);
+      sourceGain.connect(layer.gain);
+      source.onended = () => {
+        layer.sources.delete(source);
+        try {
+          sourceGain.disconnect();
+        } catch (_) {}
+      };
+      layer.sources.add(source);
+      source.start(safeStartAt);
+      source.stop(endAt + 0.03);
+
+      const nextStart = endAt - overlap;
+      const delayMs = Math.max(0, (nextStart - audioContext.currentTime - 0.08) * 1000);
+      const timer = window.setTimeout(() => {
+        layer.timers.delete(timer);
+        scheduleLayerSource(layer, nextStart, generation);
+      }, delayMs);
+      layer.timers.add(timer);
+    }
+
+    function startSyncedThinkingSources() {
+      if (!audioContext || !thinkingLayers.length) return;
+      const startAt = audioContext.currentTime + 0.04;
+      thinkingLayers.forEach((layer) => {
+        layer.generation += 1;
+        clearLayerTimers(layer);
+        stopLayerSources(layer);
+        layer.active = false;
+        layer.gain.gain.setValueAtTime(0, audioContext.currentTime);
+        scheduleLayerSource(layer, startAt, layer.generation);
+      });
+    }
+
+    function activateNextThinkingLayer() {
+      if (!thinkingPulseActive || !thinkingLayers.length) return;
+      if (thinkingLayerCursor >= thinkingLayerOrder.length) return;
+      const layer = thinkingLayers[thinkingLayerOrder[thinkingLayerCursor]];
+      thinkingLayerCursor += 1;
+      if (!layer || layer.active) return;
+      layer.active = true;
+      rampGain(layer.gain, layer.volume, THINKING_FADE_IN_SECONDS);
+    }
+
+    function activateToolThinkingLayer() {
+      if (!audioContext || !thinkingPulseActive) return;
+      if (thinkingLayerCursor <= 1) {
+        activateNextThinkingLayer();
+        firstToolLayerAt = audioContext.currentTime;
+        return;
+      }
+      if (
+        thinkingLayerCursor === 2
+        && firstToolLayerAt > 0
+        && audioContext.currentTime - firstToolLayerAt >= TOOL_LAYER_MIN_SPACING_SECONDS
+      ) {
+        activateNextThinkingLayer();
+      }
+    }
+
+    function fadeOutPianoVoices(seconds = THINKING_FADE_OUT_SECONDS) {
+      if (!audioContext || !activePianoVoices.length) return;
+      const now = audioContext.currentTime;
+      activePianoVoices.forEach((voice) => {
+        try {
+          voice.gain.gain.cancelScheduledValues(now);
+          voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+          voice.gain.gain.linearRampToValueAtTime(0.0001, now + Math.max(0.01, seconds));
+          voice.source.stop(now + Math.max(0.02, seconds + 0.04));
+        } catch (_) {}
+      });
+    }
+
+    function selectPianoNoteIndex() {
+      if (pianoNoteBuffers.length < 2) return 0;
+      let index = Math.floor(Math.random() * pianoNoteBuffers.length);
+      if (index === lastPianoNoteIndex) {
+        index = (index + 1 + Math.floor(Math.random() * (pianoNoteBuffers.length - 1))) % pianoNoteBuffers.length;
+      }
+      lastPianoNoteIndex = index;
+      return index;
+    }
+
+    function playToolPianoNote() {
+      if (!audioContext || !thinkingMasterGain || !pianoNoteBuffers.length) return;
+      const now = audioContext.currentTime;
+      const buffer = pianoNoteBuffers[selectPianoNoteIndex()];
+      const source = audioContext.createBufferSource();
+      const output = audioContext.createGain();
+      const duration = Math.min(buffer.duration, PIANO_NOTE_MAX_SECONDS);
+      source.buffer = buffer;
+      output.gain.setValueAtTime(PIANO_NOTE_VOLUME, now);
+      output.gain.setValueAtTime(PIANO_NOTE_VOLUME, now + Math.min(0.85, duration * 0.45));
+      output.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.25, duration));
+      source.connect(output);
+      output.connect(thinkingMasterGain);
+      const voice = { source, gain: output };
+      activePianoVoices.push(voice);
+      source.onended = () => {
+        activePianoVoices = activePianoVoices.filter((item) => item !== voice);
+        try {
+          output.disconnect();
+        } catch (_) {}
+      };
+      source.start(now);
+      source.stop(now + duration + 0.03);
+    }
+
+    async function cueToolSound(visualCue) {
+      try {
+        await warmFeedbackAudio();
+        if (!thinkingPulseActive && currentState === 'thinking') {
+          await startThinkingSound();
+        }
+        activateToolThinkingLayer();
+        playToolPianoNote();
+      } catch (err) {
+        log(`Tool sound blocked: ${err.message || err}`);
+      }
+    }
+
+    async function startThinkingSound() {
+      if (thinkingPulseActive) return;
+      thinkingPulseActive = true;
+      try {
+        const layers = await warmFeedbackAudio();
+        if (!thinkingPulseActive || !layers.length) return;
+        rampGain(thinkingMasterGain, THINKING_MASTER_VOLUME, 0.12);
+        thinkingLayerOrder = shuffleIndexes(layers.length);
+        thinkingLayerCursor = 0;
+        firstToolLayerAt = 0;
+        startSyncedThinkingSources();
+        activateNextThinkingLayer();
+      } catch (err) {
+        log(`Thinking sound blocked: ${err.message || err}`);
+      }
+    }
+
+    function stopThinkingSound() {
+      thinkingPulseActive = false;
+      thinkingLayerCursor = 0;
+      thinkingLayerOrder = [];
+      firstToolLayerAt = 0;
+      if (thinkingMasterGain) {
+        rampGain(thinkingMasterGain, 0, THINKING_FADE_OUT_SECONDS);
+      }
+      fadeOutPianoVoices(THINKING_FADE_OUT_SECONDS);
+      thinkingLayers.forEach((layer) => {
+        rampGain(layer.gain, 0, THINKING_FADE_OUT_SECONDS);
+        layer.active = false;
+        layer.generation += 1;
+        clearLayerTimers(layer);
+        stopLayerSources(layer, THINKING_FADE_OUT_SECONDS + 0.04);
+      });
+    }
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function averageFrequencyBand(data, analyser, lowHz, highHz) {
+      const nyquist = analyser.context.sampleRate / 2;
+      const start = Math.max(0, Math.floor((lowHz / nyquist) * data.length));
+      const end = Math.min(data.length - 1, Math.ceil((highHz / nyquist) * data.length));
+      if (end < start) return 0;
+      let sum = 0;
+      for (let i = start; i <= end; i += 1) {
+        sum += data[i];
+      }
+      return sum / ((end - start + 1) * 255);
+    }
+
+    function extractVisualCues(text) {
+      const source = ` ${String(text || '').toLowerCase()} `;
+      const cues = [];
+      const add = (kind, value, priority = 5) => {
+        const key = `${kind}:${value}`;
+        if (!cues.some((cue) => cue.key === key)) {
+          cues.push({ kind, value, priority, key });
+        }
+      };
+
+      if (/\b(calendar|agenda|schedule|appointment|meeting|event)\b/.test(source)) add('icon', 'calendar', 1);
+      if (/\b(flight|airport|plane|boarding|depart|arrival|trip|travel)\b/.test(source)) add('icon', 'plane', 2);
+      if (/\b(location|where|map|address|gps|tracker)\b/.test(source)) add('icon', 'pin', 2);
+      if (/\b(home|house|garage|room)\b/.test(source)) add('icon', 'home', 3);
+      if (/\b(weather|rain|storm|cloud|temperature|forecast)\b/.test(source)) add('icon', 'cloud', 2);
+      if (/\b(sun|sunny|clear)\b/.test(source)) add('icon', 'sun', 3);
+      if (/\b(email|mail|inbox|message)\b/.test(source)) add('icon', 'mail', 2);
+      if (/\b(warning|error|down|failed|unreachable|offline|attention)\b/.test(source)) add('icon', 'alert', 1);
+      if (/\b(music|song|playlist|album|artist)\b/.test(source)) add('icon', 'music', 3);
+      if (/\b(file|folder|document|vault|note)\b/.test(source)) add('icon', 'file', 3);
+      if (/\b(done|complete|success|ok|healthy|fixed)\b/.test(source)) add('icon', 'check', 4);
+      if (/\b(time|later|soon|today|tomorrow|tonight)\b/.test(source)) add('icon', 'clock', 4);
+      if (/\b(phone|iphone|call)\b/.test(source)) add('icon', 'phone', 3);
+
+      const dateNumber = source.match(/\b(?:april|may|june|july|august|september|october|november|december|january|february|march)\s+([0-3]?\d)\b/)
+        || source.match(/\b([0-3]?\d)(?:st|nd|rd|th)\b/)
+        || source.match(/\b(?:date|day)\s+([0-3]?\d)\b/);
+      if (dateNumber) add('text', dateNumber[1].replace(/^0/, ''), 2);
+
+      return cues.sort((a, b) => a.priority - b.priority).slice(0, 4);
+    }
+
+    function drawCueIcon(maskCtx, name, size) {
+      const c = size / 2;
+      const s = size;
+      maskCtx.lineCap = 'round';
+      maskCtx.lineJoin = 'round';
+      maskCtx.strokeStyle = '#fff';
+      maskCtx.fillStyle = '#fff';
+      maskCtx.lineWidth = 18;
+
+      if (name === 'calendar') {
+        maskCtx.strokeRect(s * 0.2, s * 0.24, s * 0.6, s * 0.56);
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.2, s * 0.38);
+        maskCtx.lineTo(s * 0.8, s * 0.38);
+        maskCtx.moveTo(s * 0.34, s * 0.18);
+        maskCtx.lineTo(s * 0.34, s * 0.3);
+        maskCtx.moveTo(s * 0.66, s * 0.18);
+        maskCtx.lineTo(s * 0.66, s * 0.3);
+        maskCtx.stroke();
+        for (const x of [0.34, 0.5, 0.66]) {
+          for (const y of [0.52, 0.66]) {
+            maskCtx.beginPath();
+            maskCtx.arc(s * x, s * y, 9, 0, TAU);
+            maskCtx.fill();
+          }
+        }
+        return;
+      }
+
+      if (name === 'plane') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.16, s * 0.55);
+        maskCtx.lineTo(s * 0.84, s * 0.24);
+        maskCtx.lineTo(s * 0.68, s * 0.78);
+        maskCtx.lineTo(s * 0.52, s * 0.6);
+        maskCtx.lineTo(s * 0.34, s * 0.72);
+        maskCtx.lineTo(s * 0.42, s * 0.55);
+        maskCtx.closePath();
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'pin') {
+        maskCtx.beginPath();
+        maskCtx.arc(c, s * 0.38, s * 0.18, 0, TAU);
+        maskCtx.stroke();
+        maskCtx.beginPath();
+        maskCtx.moveTo(c, s * 0.84);
+        maskCtx.quadraticCurveTo(s * 0.24, s * 0.52, s * 0.32, s * 0.32);
+        maskCtx.quadraticCurveTo(c, s * 0.08, s * 0.68, s * 0.32);
+        maskCtx.quadraticCurveTo(s * 0.76, s * 0.52, c, s * 0.84);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'home') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.18, s * 0.48);
+        maskCtx.lineTo(c, s * 0.18);
+        maskCtx.lineTo(s * 0.82, s * 0.48);
+        maskCtx.moveTo(s * 0.28, s * 0.45);
+        maskCtx.lineTo(s * 0.28, s * 0.8);
+        maskCtx.lineTo(s * 0.72, s * 0.8);
+        maskCtx.lineTo(s * 0.72, s * 0.45);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'cloud') {
+        maskCtx.beginPath();
+        maskCtx.arc(s * 0.36, s * 0.56, s * 0.16, Math.PI * 0.9, Math.PI * 1.9);
+        maskCtx.arc(s * 0.52, s * 0.46, s * 0.2, Math.PI, TAU);
+        maskCtx.arc(s * 0.68, s * 0.58, s * 0.15, Math.PI * 1.2, Math.PI * 2.1);
+        maskCtx.lineTo(s * 0.3, s * 0.72);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'sun') {
+        maskCtx.beginPath();
+        maskCtx.arc(c, c, s * 0.18, 0, TAU);
+        maskCtx.stroke();
+        for (let i = 0; i < 8; i += 1) {
+          const a = (i / 8) * TAU;
+          maskCtx.beginPath();
+          maskCtx.moveTo(c + Math.cos(a) * s * 0.3, c + Math.sin(a) * s * 0.3);
+          maskCtx.lineTo(c + Math.cos(a) * s * 0.42, c + Math.sin(a) * s * 0.42);
+          maskCtx.stroke();
+        }
+        return;
+      }
+
+      if (name === 'mail') {
+        maskCtx.strokeRect(s * 0.2, s * 0.3, s * 0.6, s * 0.42);
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.22, s * 0.32);
+        maskCtx.lineTo(c, s * 0.56);
+        maskCtx.lineTo(s * 0.78, s * 0.32);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'alert') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(c, s * 0.16);
+        maskCtx.lineTo(s * 0.84, s * 0.78);
+        maskCtx.lineTo(s * 0.16, s * 0.78);
+        maskCtx.closePath();
+        maskCtx.stroke();
+        maskCtx.beginPath();
+        maskCtx.moveTo(c, s * 0.36);
+        maskCtx.lineTo(c, s * 0.58);
+        maskCtx.stroke();
+        maskCtx.beginPath();
+        maskCtx.arc(c, s * 0.68, 8, 0, TAU);
+        maskCtx.fill();
+        return;
+      }
+
+      if (name === 'music') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.58, s * 0.22);
+        maskCtx.lineTo(s * 0.58, s * 0.68);
+        maskCtx.arc(s * 0.46, s * 0.7, s * 0.12, 0, TAU);
+        maskCtx.moveTo(s * 0.58, s * 0.24);
+        maskCtx.lineTo(s * 0.78, s * 0.18);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'file') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.3, s * 0.18);
+        maskCtx.lineTo(s * 0.58, s * 0.18);
+        maskCtx.lineTo(s * 0.74, s * 0.34);
+        maskCtx.lineTo(s * 0.74, s * 0.82);
+        maskCtx.lineTo(s * 0.3, s * 0.82);
+        maskCtx.closePath();
+        maskCtx.moveTo(s * 0.58, s * 0.18);
+        maskCtx.lineTo(s * 0.58, s * 0.36);
+        maskCtx.lineTo(s * 0.74, s * 0.36);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'check') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.2, s * 0.54);
+        maskCtx.lineTo(s * 0.42, s * 0.74);
+        maskCtx.lineTo(s * 0.8, s * 0.28);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'clock') {
+        maskCtx.beginPath();
+        maskCtx.arc(c, c, s * 0.3, 0, TAU);
+        maskCtx.moveTo(c, c);
+        maskCtx.lineTo(c, s * 0.32);
+        maskCtx.moveTo(c, c);
+        maskCtx.lineTo(s * 0.66, s * 0.58);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'phone') {
+        maskCtx.strokeRect(s * 0.35, s * 0.16, s * 0.3, s * 0.68);
+        maskCtx.beginPath();
+        maskCtx.arc(c, s * 0.76, 6, 0, TAU);
+        maskCtx.fill();
+        return;
+      }
+
+      if (name === 'terminal') {
+        maskCtx.strokeRect(s * 0.18, s * 0.24, s * 0.64, s * 0.52);
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.3, s * 0.43);
+        maskCtx.lineTo(s * 0.42, s * 0.5);
+        maskCtx.lineTo(s * 0.3, s * 0.57);
+        maskCtx.moveTo(s * 0.5, s * 0.62);
+        maskCtx.lineTo(s * 0.68, s * 0.62);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'search') {
+        maskCtx.beginPath();
+        maskCtx.arc(s * 0.44, s * 0.44, s * 0.2, 0, TAU);
+        maskCtx.moveTo(s * 0.59, s * 0.59);
+        maskCtx.lineTo(s * 0.78, s * 0.78);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'message') {
+        maskCtx.beginPath();
+        maskCtx.roundRect(s * 0.2, s * 0.25, s * 0.6, s * 0.42, 22);
+        maskCtx.moveTo(s * 0.38, s * 0.67);
+        maskCtx.lineTo(s * 0.28, s * 0.8);
+        maskCtx.lineTo(s * 0.52, s * 0.67);
+        maskCtx.stroke();
+        return;
+      }
+
+      if (name === 'tool') {
+        maskCtx.beginPath();
+        maskCtx.moveTo(s * 0.28, s * 0.74);
+        maskCtx.lineTo(s * 0.66, s * 0.36);
+        maskCtx.moveTo(s * 0.58, s * 0.2);
+        maskCtx.quadraticCurveTo(s * 0.72, s * 0.16, s * 0.78, s * 0.28);
+        maskCtx.lineTo(s * 0.66, s * 0.4);
+        maskCtx.lineTo(s * 0.56, s * 0.3);
+        maskCtx.closePath();
+        maskCtx.stroke();
+        maskCtx.beginPath();
+        maskCtx.arc(s * 0.26, s * 0.76, 8, 0, TAU);
+        maskCtx.fill();
+      }
+    }
+
+    function visualCueForTool(data) {
+      const name = String(data.name || data.tool || '').toLowerCase();
+      const emoji = String(data.emoji || data.value || data.icon || '').trim();
+      const source = `${name} ${emoji}`;
+      const match = (patterns) => patterns.some((pattern) => source.includes(pattern));
+      if (match(['calendar', 'event', 'agenda'])) return { kind: 'icon', value: 'calendar', emoji };
+      if (match(['web', 'search', 'browser', '🔎', '🔍'])) return { kind: 'icon', value: 'search', emoji };
+      if (match(['terminal', 'shell', 'exec', 'command', 'python', 'code', '💻', '🐍'])) return { kind: 'icon', value: 'terminal', emoji };
+      if (match(['file', 'vault', 'note', 'document', 'patch', 'read_', 'write_', '📄', '📖', '✍'])) return { kind: 'icon', value: 'file', emoji };
+      if (match(['home_assistant', 'hass', 'location', 'device_tracker', '🏠'])) return { kind: 'icon', value: 'home', emoji };
+      if (match(['cron', 'schedule', 'job', '⏱', '⏰'])) return { kind: 'icon', value: 'clock', emoji };
+      if (match(['mail', 'email', 'gmail', 'inbox', '✉'])) return { kind: 'icon', value: 'mail', emoji };
+      if (match(['weather', 'forecast', '🌤', '☀'])) return { kind: 'icon', value: 'cloud', emoji };
+      if (match(['discord', 'message', 'chat', '💬'])) return { kind: 'icon', value: 'message', emoji };
+      if (match(['music', 'spotify', 'playlist', '🎵'])) return { kind: 'icon', value: 'music', emoji };
+      return { kind: 'icon', value: 'tool', emoji };
+    }
+
+    function titleCaseWords(value) {
+      return value
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+
+    function truncateMiddle(value, maxLength = 72) {
+      const text = String(value || '').replace(/\s+/g, ' ').trim();
+      if (text.length <= maxLength) return text;
+      const keep = Math.max(10, Math.floor((maxLength - 1) / 2));
+      return `${text.slice(0, keep)}…${text.slice(-keep)}`;
+    }
+
+    function fileNameFromPath(value) {
+      const clean = String(value || '').replace(/^['"]|['"]$/g, '');
+      const parts = clean.split(/[\\/]/).filter(Boolean);
+      return parts[parts.length - 1] || clean;
+    }
+
+    function conciseToolDetail(value) {
+      const text = String(value || '').replace(/\s+/g, ' ').trim();
+      if (!text) return '';
+
+      const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/i);
+      if (urlMatch) {
+        try {
+          const url = new URL(urlMatch[0]);
+          const path = url.pathname && url.pathname !== '/' ? url.pathname.replace(/\/$/, '') : '';
+          return truncateMiddle(`${url.hostname}${path}`, 72);
+        } catch {
+          return truncateMiddle(urlMatch[0].replace(/^https?:\/\//i, ''), 72);
+        }
+      }
+
+      const firstCommand = text.split('|')[0].trim();
+      const scriptMatch = firstCommand.match(/(?:^|\s)(['"]?(?:\/[^\s'"]+|\.{1,2}\/[^\s'"]+|[A-Za-z0-9_.-]+)\.(?:py|js|ts|mjs|cjs|sh|zsh|bash|rb|pl|php|swift|go|rs)['"]?)/i);
+      if (scriptMatch) return fileNameFromPath(scriptMatch[1]);
+
+      const pathMatch = firstCommand.match(/(?:^|\s)(['"]?(?:\/[^\s'"]+|\.{1,2}\/[^\s'"]+)['"]?)/);
+      if (pathMatch) return fileNameFromPath(pathMatch[1]);
+
+      const quoted = text.match(/["']([^"']{4,90})["']/);
+      if (quoted) return truncateMiddle(quoted[1], 72);
+
+      return truncateMiddle(text, 72);
+    }
+
+    function toolReadoutTitle(data, visualCue) {
+      const rawName = String(data.name || data.tool || '').trim();
+      const source = `${rawName} ${visualCue.value || ''}`.toLowerCase();
+      if (source.includes('calendar') || source.includes('agenda')) return 'Calendar';
+      if (source.includes('web') || source.includes('search') || source.includes('browser')) return 'Web Search';
+      if (source.includes('terminal') || source.includes('shell') || source.includes('exec') || source.includes('command')) return 'Terminal';
+      if (source.includes('python')) return 'Python';
+      if (source.includes('cron') || source.includes('schedule')) return 'Cron Job';
+      if (source.includes('home_assistant') || source.includes('hass') || source.includes('device_tracker')) return 'Home Assistant';
+      if (source.includes('mail') || source.includes('email') || source.includes('gmail')) return 'Email';
+      if (source.includes('weather') || source.includes('forecast')) return 'Weather';
+      if (source.includes('discord') || source.includes('message') || source.includes('chat')) return 'Messages';
+      if (source.includes('file') || source.includes('vault') || source.includes('document')) return 'Files';
+      return titleCaseWords(rawName || 'Tool');
+    }
+
+    function toolReadoutSubtitle(data, title) {
+      const rawName = String(data.name || data.tool || '').trim();
+      const candidates = [
+        data.label,
+        data.preview,
+        data.query,
+        data.url,
+        data.command,
+      ];
+      const detail = candidates
+        .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+        .find((value) => value && value.toLowerCase() !== rawName.toLowerCase() && value.toLowerCase() !== title.toLowerCase());
+      return conciseToolDetail(detail);
+    }
+
+    function showToolReadout(data, visualCue) {
+      if (currentState !== 'thinking') return;
+      const title = toolReadoutTitle(data, visualCue);
+      const subtitle = toolReadoutSubtitle(data, title);
+      toolReadoutQueue.push({ title, subtitle });
+      toolReadoutQueue = toolReadoutQueue.slice(-12);
+      playNextToolReadout();
+    }
+
+    function redactToolTickerValue(key, value) {
+      const lowerKey = String(key || '').toLowerCase();
+      if (/(secret|token|password|passwd|credential|authorization|apikey|api_key|key)/.test(lowerKey)) {
+        return '[redacted]';
+      }
+      if (value == null) return '';
+      if (typeof value === 'string') {
+        return value
+          .replace(/(sk-[A-Za-z0-9_-]{12,})/g, '[redacted]')
+          .replace(/([A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,})/g, '[redacted]');
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      if (Array.isArray(value)) return value.slice(0, 4).map((item) => redactToolTickerValue(key, item)).join(',');
+      if (typeof value === 'object') {
+        return Object.entries(value)
+          .slice(0, 8)
+          .map(([childKey, childValue]) => `${childKey}:${redactToolTickerValue(childKey, childValue)}`)
+          .join(',');
+      }
+      return String(value);
+    }
+
+    function compactToolTickerField(key, value) {
+      const clean = redactToolTickerValue(key, value).replace(/\s+/g, ' ').trim();
+      if (!clean) return '';
+      return `${String(key).toUpperCase()}=${truncateMiddle(clean, 96)}`;
+    }
+
+    function toolTickerText(data, visualCue) {
+      const name = String(data.name || data.tool || visualCue.value || 'tool').replace(/\s+/g, '_');
+      const stage = String(data.stage || 'started').replace(/\s+/g, '_');
+      const label = String(data.label || data.preview || data.query || data.command || data.url || '').trim();
+      const timestamp = formatTime(data.at || Date.now() / 1000).replace(/\s+/g, '');
+      const fields = [
+        `HERMES-VOICE`,
+        `TOOLCALL`,
+        `TRACE=${String(++toolTickerId).padStart(4, '0')}`,
+        `STAGE=${stage}`,
+        `NAME=${name}`,
+        `KIND=${visualCue.value || visualCue.kind || 'tool'}`,
+        label ? compactToolTickerField('label', label) : '',
+        compactToolTickerField('provider', data.provider),
+        compactToolTickerField('status', data.status),
+        `AT=${timestamp}`,
+      ].filter(Boolean);
+      const extras = Object.entries(data)
+        .filter(([key]) => !['type', 'kind', 'emoji', 'icon', 'name', 'tool', 'stage', 'label', 'preview', 'query', 'command', 'url', 'at'].includes(key))
+        .map(([key, value]) => compactToolTickerField(key, value))
+        .filter(Boolean)
+        .slice(0, 5);
+      const stream = fields.concat(extras).join('  ::  ');
+      return `${stream}  ///  ${stream}`;
+    }
+
+    function renderToolTickerCanvas(tokens) {
+      const fontSize = Math.max(13, Math.min(22, width * 0.016));
+      const gap = fontSize * 0.52;
+      const paddingX = Math.ceil(fontSize * 1.5);
+      const paddingY = Math.ceil(fontSize * 1.3);
+      const scratch = document.createElement('canvas');
+      const scratchCtx = scratch.getContext('2d');
+      const font = `800 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
+      scratchCtx.font = font;
+      const measuredTokens = tokens.map((token) => ({
+        ...token,
+        width: scratchCtx.measureText(token.text).width,
+      }));
+      const cssWidth = Math.min(
+        9000,
+        Math.ceil(measuredTokens.reduce((sum, token) => sum + token.width + gap, paddingX * 2)),
+      );
+      const cssHeight = Math.ceil(fontSize * 2.55 + paddingY);
+      const scale = Math.min(window.devicePixelRatio || 1, 1.25);
+      const bitmap = document.createElement('canvas');
+      bitmap.width = Math.max(1, Math.ceil(cssWidth * scale));
+      bitmap.height = Math.max(1, Math.ceil(cssHeight * scale));
+      bitmap.style.width = `${cssWidth}px`;
+      bitmap.style.height = `${cssHeight}px`;
+      const bitmapCtx = bitmap.getContext('2d');
+      bitmapCtx.setTransform(scale, 0, 0, scale, 0, 0);
+      bitmapCtx.font = font;
+      bitmapCtx.textBaseline = 'middle';
+      bitmapCtx.globalCompositeOperation = 'lighter';
+
+      let cursor = paddingX;
+      const y = cssHeight / 2;
+      for (const token of measuredTokens) {
+        if (cursor > cssWidth - paddingX) break;
+        if (token.tone === 'hot') {
+          bitmapCtx.fillStyle = 'rgba(255, 244, 216, 0.98)';
+          bitmapCtx.shadowBlur = 18;
+          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.72)';
+        } else if (token.tone === 'strong') {
+          bitmapCtx.fillStyle = 'rgba(255, 209, 132, 0.9)';
+          bitmapCtx.shadowBlur = 10;
+          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.48)';
+        } else if (token.tone === 'dim') {
+          bitmapCtx.fillStyle = 'rgba(242, 184, 92, 0.42)';
+          bitmapCtx.shadowBlur = 6;
+          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.3)';
+        } else {
+          bitmapCtx.fillStyle = 'rgba(242, 184, 92, 0.72)';
+          bitmapCtx.shadowBlur = 8;
+          bitmapCtx.shadowColor = 'rgba(242, 184, 92, 0.36)';
+        }
+        bitmapCtx.fillText(token.text, cursor, y);
+        cursor += token.width + gap;
+      }
+      return { bitmap, width: cssWidth, height: cssHeight };
+    }
+
+    function spawnToolTicker(data, visualCue) {
+      const top = 10 + Math.random() * 74;
+      const duration = reducedMotion ? 18 : 7.5 + Math.random() * 4.5;
+      const important = new Set(['HERMES-VOICE', 'TOOLCALL', 'STAGE', 'NAME', 'KIND', 'LABEL', 'COMMAND', 'QUERY', 'URL']);
+      const tokens = toolTickerText(data, visualCue).split(/\s+/).filter(Boolean).slice(0, 96);
+      const renderedTokens = tokens.map((token, index) => {
+        const tokenKey = token.split('=')[0].replace(/[:/]/g, '').toUpperCase();
+        const normalized = token.toUpperCase();
+        if (index % 17 === 0 || important.has(tokenKey) || normalized.includes(String(data.name || data.tool || '').toUpperCase())) {
+          return { text: token, tone: 'hot' };
+        }
+        if (index % 5 === 0 || normalized.includes('TRACE=') || normalized.includes('STAGE=')) {
+          return { text: token, tone: 'strong' };
+        }
+        if (index % 7 === 0 || token === '::' || token === '///') {
+          return { text: token, tone: 'dim' };
+        }
+        return { text: token, tone: 'normal' };
+      });
+      const renderedLine = renderToolTickerCanvas(renderedTokens);
+
+      activeToolTickers.push({
+        ...renderedLine,
+        topRatio: top / 100,
+        startedAt: performance.now(),
+        durationMs: duration * 1000,
+      });
+      activeToolTickers = activeToolTickers.slice(-12);
+    }
+
+    function playNextToolReadout() {
+      if (toolReadoutActive) return;
+      if (currentState !== 'thinking') {
+        clearToolReadout();
+        return;
+      }
+      const next = toolReadoutQueue.shift();
+      if (!next) {
+        clearToolReadout(false);
+        return;
+      }
+      const cueId = toolReadoutId + 1;
+      toolReadoutId = cueId;
+      toolReadoutActive = true;
+      window.clearTimeout(toolReadoutTimer);
+      stateLabelEl.textContent = next.title;
+      stateDetailEl.textContent = next.subtitle;
+      topDetailEl.textContent = next.subtitle || next.title;
+      readoutEl.classList.remove('tool-cue');
+      void readoutEl.offsetWidth;
+      readoutEl.classList.add('tool-cue');
+      toolReadoutTimer = window.setTimeout(() => {
+        if (toolReadoutId !== cueId) return;
+        toolReadoutActive = false;
+        readoutEl.classList.remove('tool-cue');
+        stateLabelEl.textContent = '';
+        stateDetailEl.textContent = '';
+        topDetailEl.textContent = '';
+        if (currentState === 'thinking') {
+          window.setTimeout(playNextToolReadout, 80);
+        } else {
+          clearToolReadout();
+        }
+      }, TOOL_READOUT_MS);
+    }
+
+    function buildVisualCue(kind, value) {
+      const size = 360;
+      visualMaskCanvas.width = size;
+      visualMaskCanvas.height = size;
+      visualMaskCtx.clearRect(0, 0, size, size);
+      visualMaskCtx.save();
+      visualMaskCtx.translate(0, 0);
+      if (kind === 'emoji') {
+        visualMaskCtx.fillStyle = '#fff';
+        visualMaskCtx.textAlign = 'center';
+        visualMaskCtx.textBaseline = 'middle';
+        visualMaskCtx.font = '220px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+        visualMaskCtx.fillText(String(value).slice(0, 4), size / 2, size / 2 + 10);
+      } else if (kind === 'text') {
+        visualMaskCtx.fillStyle = '#fff';
+        visualMaskCtx.textAlign = 'center';
+        visualMaskCtx.textBaseline = 'middle';
+        visualMaskCtx.font = `800 ${value.length > 2 ? 150 : 210}px Inter, system-ui, sans-serif`;
+        visualMaskCtx.fillText(String(value).slice(0, 4), size / 2, size / 2 + 8);
+      } else {
+        drawCueIcon(visualMaskCtx, value, size);
+      }
+      visualMaskCtx.restore();
+
+      const image = visualMaskCtx.getImageData(0, 0, size, size).data;
+      const points = [];
+      const step = kind === 'emoji' ? 5 : 4;
+      for (let y = 0; y < size; y += step) {
+        for (let x = 0; x < size; x += step) {
+          const alpha = image[((y * size + x) * 4) + 3];
+          if (alpha > 18) {
+            points.push({ x: (x / size) - 0.5, y: (y / size) - 0.5 });
+          }
+        }
+      }
+      if (!points.length) return null;
+      return { kind, value, points };
+    }
+
+    function queueVisualCue(kind, value) {
+      const safeKind = kind === 'emoji' ? 'emoji' : kind === 'text' ? 'text' : 'icon';
+      const safeValue = String(value || '').trim();
+      if (!safeValue) return;
+      const now = performance.now();
+      const key = `${safeKind}:${safeValue}`;
+      if (key === lastVisualCueKey && now - lastVisualCueAt < 700) return;
+      const built = buildVisualCue(safeKind, safeValue);
+      if (!built) return;
+      lastVisualCueKey = key;
+      lastVisualCueAt = now;
+      visualCueQueue.push(built);
+      visualCueQueue = visualCueQueue.slice(-5);
+      if (!activeVisualCue) {
+        visualCueStartedAt = 0;
+        visualCuePeak = 0;
+      }
+    }
+
+    function queueVisualCuesFromText(text) {
+      const cues = extractVisualCues(text);
+      if (!cues.length) return;
+      const key = cues.map((cue) => cue.key).join('|');
+      const now = performance.now();
+      if (key === lastVisualCueKey && now - lastVisualCueAt < 1200) return;
+      lastVisualCueKey = key;
+      lastVisualCueAt = now;
+      const built = cues.map((cue) => buildVisualCue(cue.kind, cue.value)).filter(Boolean);
+      if (built.length) {
+        visualCueQueue = built;
+        activeVisualCue = null;
+        visualCueStartedAt = 0;
+      }
+    }
+
+    function shouldShowVisualCue() {
+      if (reducedMotion || (!visualCueQueue.length && !activeVisualCue)) return false;
+      return currentState === 'thinking';
+    }
+
+    const cueTiming = {
+      gather: 175,
+      hold: 1120,
+      release: 175,
+    };
+    cueTiming.total = cueTiming.gather + cueTiming.hold + cueTiming.release;
+
+    function clamp01(value) {
+      return Math.max(0, Math.min(1, value));
+    }
+
+    function accelerateIn(t) {
+      return Math.pow(clamp01(t), 2.6);
+    }
+
+    function cuePhase(elapsed) {
+      if (elapsed < cueTiming.gather) {
+        return {
+          name: 'gather',
+          progress: clamp01(elapsed / cueTiming.gather),
+          influence: 0.08 + accelerateIn(elapsed / cueTiming.gather) * 0.92,
+        };
+      }
+      if (elapsed < cueTiming.gather + cueTiming.hold) {
+        return {
+          name: 'hold',
+          progress: clamp01((elapsed - cueTiming.gather) / cueTiming.hold),
+          influence: 1,
+        };
+      }
+      const releaseElapsed = elapsed - cueTiming.gather - cueTiming.hold;
+      return {
+        name: 'release',
+        progress: clamp01(releaseElapsed / cueTiming.release),
+        influence: accelerateIn(1 - (releaseElapsed / cueTiming.release)),
+      };
+    }
+
+    function currentShapeTarget(particle, now) {
+      if (!shouldShowVisualCue()) {
+        activeVisualCue = null;
+        return null;
+      }
+      if (!activeVisualCue || now - visualCueStartedAt > cueTiming.total) {
+        const next = visualCueQueue.shift();
+        if (!next) {
+          activeVisualCue = null;
+          return null;
+        }
+        activeVisualCue = next;
+        visualCueStartedAt = now;
+        visualCuePeak = 0;
+      }
+      const elapsed = now - visualCueStartedAt;
+      const phase = cuePhase(elapsed);
+      const influence = phase.influence;
+      visualCuePeak = Math.max(visualCuePeak, influence);
+      if (influence <= 0.02) return null;
+
+      if (phase.name === 'gather') {
+        return {
+          x: width * 0.5,
+          y: height * 0.42,
+          influence,
+        };
+      }
+
+      const points = activeVisualCue.points;
+      const point = points[Math.floor((particle.seed * 997 + particle.index * 17) % points.length)];
+      const scale = Math.min(width, height) * (activeVisualCue.kind === 'text' ? 0.66 : 0.58);
+      return {
+        x: (width * 0.5) + (point.x * scale) + Math.sin(now * 0.004 + particle.seed) * 1.5,
+        y: (height * 0.42) + (point.y * scale) + Math.cos(now * 0.003 + particle.seed) * 1.5,
+        influence,
+      };
+    }
+
+    function getErrorShapePoints() {
+      if (errorShapePoints) return errorShapePoints;
+      const size = 360;
+      visualMaskCanvas.width = size;
+      visualMaskCanvas.height = size;
+      visualMaskCtx.clearRect(0, 0, size, size);
+      visualMaskCtx.save();
+      visualMaskCtx.translate(size / 2, size / 2);
+      visualMaskCtx.fillStyle = '#fff';
+      visualMaskCtx.strokeStyle = '#fff';
+      visualMaskCtx.lineCap = 'round';
+      visualMaskCtx.lineJoin = 'round';
+
+      visualMaskCtx.lineWidth = 32;
+      visualMaskCtx.beginPath();
+      visualMaskCtx.moveTo(-118, 104);
+      visualMaskCtx.lineTo(118, -104);
+      visualMaskCtx.moveTo(118, 104);
+      visualMaskCtx.lineTo(-118, -104);
+      visualMaskCtx.stroke();
+
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          visualMaskCtx.beginPath();
+          visualMaskCtx.arc(sx * 132, sy * 118, 18, 0, TAU);
+          visualMaskCtx.fill();
+        }
+      }
+
+      visualMaskCtx.beginPath();
+      visualMaskCtx.ellipse(0, -24, 82, 92, 0, 0, TAU);
+      visualMaskCtx.fill();
+      visualMaskCtx.fillRect(-50, 44, 100, 72);
+      visualMaskCtx.fillRect(-38, 96, 76, 32);
+
+      visualMaskCtx.globalCompositeOperation = 'destination-out';
+      visualMaskCtx.beginPath();
+      visualMaskCtx.ellipse(-32, -30, 23, 31, -0.25, 0, TAU);
+      visualMaskCtx.ellipse(32, -30, 23, 31, 0.25, 0, TAU);
+      visualMaskCtx.fill();
+      visualMaskCtx.beginPath();
+      visualMaskCtx.moveTo(0, -4);
+      visualMaskCtx.lineTo(-16, 28);
+      visualMaskCtx.lineTo(16, 28);
+      visualMaskCtx.closePath();
+      visualMaskCtx.fill();
+      for (let x = -30; x <= 30; x += 20) {
+        visualMaskCtx.fillRect(x - 5, 70, 10, 42);
+      }
+      visualMaskCtx.restore();
+
+      const image = visualMaskCtx.getImageData(0, 0, size, size).data;
+      const points = [];
+      for (let y = 0; y < size; y += 4) {
+        for (let x = 0; x < size; x += 4) {
+          const alpha = image[((y * size + x) * 4) + 3];
+          if (alpha > 18) points.push({ x: (x / size) - 0.5, y: (y / size) - 0.5 });
+        }
+      }
+      errorShapePoints = points;
+      return errorShapePoints;
+    }
+
+    function errorShapeTarget(particle, now) {
+      const points = getErrorShapePoints();
+      if (!points.length) return null;
+      const point = points[Math.floor((particle.seed * 997 + particle.index * 17) % points.length)];
+      const scale = Math.min(width, height) * (isMobile ? 0.68 : 0.6);
+      return {
+        x: (width * 0.5) + (point.x * scale) + Math.sin(now * 0.0035 + particle.seed) * 1.2,
+        y: (height * 0.42) + (point.y * scale) + Math.cos(now * 0.003 + particle.seed) * 1.2,
+        influence: 0.94,
+      };
+    }
+
+    function blendTargets(base, shape) {
+      if (!shape) return base;
+      const influence = Math.min(1, shape.influence * 1.12);
+      return {
+        x: base.x + (shape.x - base.x) * influence,
+        y: base.y + (shape.y - base.y) * influence,
+      };
+    }
+
+    function makeTriangleHomePoint() {
+      const vertices = [
+        { x: 0, y: -0.98 },
+        { x: 0.92, y: 0.72 },
+        { x: -0.92, y: 0.72 },
+      ];
+      if (Math.random() < 0.62) {
+        const edge = Math.floor(Math.random() * 3);
+        const a = vertices[edge];
+        const b = vertices[(edge + 1) % vertices.length];
+        const t = Math.random();
+        const feather = Math.pow(Math.random(), 2.2) * 0.13;
+        return {
+          x: a.x + (b.x - a.x) * t,
+          y: a.y + (b.y - a.y) * t + feather,
+        };
+      }
+
+      let u = Math.random();
+      let v = Math.random();
+      if (u + v > 1) {
+        u = 1 - u;
+        v = 1 - v;
+      }
+      const a = vertices[0];
+      const b = vertices[1];
+      const c = vertices[2];
+      return {
+        x: a.x + u * (b.x - a.x) + v * (c.x - a.x),
+        y: a.y + u * (b.y - a.y) + v * (c.y - a.y),
+      };
+    }
+
+    function resize() {
+      dpr = Math.min(isMobile ? 1.35 : 1.5, window.devicePixelRatio || 1);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      particles = [];
+      seedParticles();
+    }
+
+    function seedParticles() {
+      const old = particles;
+      const centerX = width * 0.5;
+      const centerY = height * 0.45;
+      const radius = Math.min(width, height) * (isMobile ? 0.27 : 0.24);
+      particles = Array.from({ length: particleCount }, (_, index) => {
+        const previous = old[index];
+        const ring = Math.sqrt(Math.random());
+        const angle = Math.random() * TAU;
+        const triangleHome = previous ? { x: previous.homeTriX, y: previous.homeTriY } : makeTriangleHomePoint();
+        const x = previous ? previous.x : centerX + Math.cos(angle) * radius * ring;
+        const y = previous ? previous.y : centerY + Math.sin(angle) * radius * ring;
+        return {
+          x,
+          y,
+          vx: previous ? previous.vx : rand(-0.4, 0.4),
+          vy: previous ? previous.vy : rand(-0.4, 0.4),
+          seed: Math.random() * 1000,
+          index,
+          homeAngle: angle,
+          homeRadius: radius * ring,
+          homeTriX: triangleHome.x,
+          homeTriY: triangleHome.y,
+          depth: rand(0.45, 1),
+          size: rand(0.75, 1.95),
+        };
+      });
+    }
+
+    function statePhysics(state) {
+      if (state === 'thinking') {
+        return { spring: 0.018, damping: 0.9, wander: 1.8, scatter: 1 };
+      }
+      if (state === 'speaking') {
+        return { spring: 0.09, damping: 0.76, wander: 0.65, scatter: 0.08 };
+      }
+      if (state === 'connecting' || state === 'starting') {
+        return { spring: 0.035, damping: 0.86, wander: 0.55, scatter: 0.18 };
+      }
+      if (state === 'error' || state === 'disconnected') {
+        return { spring: 0.026, damping: 0.88, wander: 0.38, scatter: 0.42 };
+      }
+      return { spring: 0.052, damping: 0.84, wander: 0.28, scatter: 0 };
+    }
+
+    function particleTarget(particle, now, audioEnergy) {
+      const cx = width * 0.5;
+      const cy = height * 0.45;
+      const minSide = Math.min(width, height);
+      const baseRadius = minSide * (isMobile ? 0.265 : 0.235);
+      const speaking = currentState === 'speaking';
+      const speechLow = speaking ? remoteBands.low : 0;
+      const speechMid = speaking ? remoteBands.mid : 0;
+      const speechHigh = speaking ? remoteBands.high : 0;
+      const speechTransient = speaking ? remoteBands.transient : 0;
+      const audioPulse = 1 + audioEnergy * (speaking ? 0.26 : 0.28);
+      const breathing = 1 + Math.sin(now * 0.0014 + particle.seed) * 0.018;
+      const angle = particle.homeAngle + spin * (0.12 + particle.depth * 0.18);
+      let radius = particle.homeRadius * (baseRadius / Math.max(1, minSide * (isMobile ? 0.27 : 0.24)));
+      radius *= breathing * audioPulse;
+      const triangleScale = minSide * (isMobile ? 0.285 : 0.255);
+      const triangleLean = Math.sin(now * 0.00065 + particle.seed) * 0.018;
+      const trianglePulse = speaking ? 1 + speechLow * 0.055 + audioEnergy * 0.07 : breathing * (1 + audioEnergy * 0.08);
+      const triangleAngle = Math.atan2(particle.homeTriY, particle.homeTriX);
+      const triangleDistance = Math.hypot(particle.homeTriX, particle.homeTriY);
+      const triangleOutward = speaking
+        ? 1 + speechLow * (0.035 + particle.depth * 0.075) + speechMid * Math.sin(now * 0.008 + particle.seed) * 0.026
+        : 1;
+
+      if (speaking) {
+        const speechWave = Math.sin(now * 0.0085 - particle.homeRadius * 0.018 + particle.seed * 0.42);
+        const vowelPush = speechLow * (0.05 + particle.depth * 0.06);
+        const syllablePush = speechMid * speechWave * (0.045 + particle.depth * 0.045);
+        const consonantPush = speechTransient * (0.045 + particle.depth * 0.045);
+        radius *= 0.78 + particle.depth * 0.18 + vowelPush + syllablePush + consonantPush;
+      } else if (currentState === 'connecting' || currentState === 'starting') {
+        radius *= 1.08 + 0.08 * Math.sin(now * 0.001 + particle.seed);
+      } else if (currentState === 'error' || currentState === 'disconnected') {
+        radius *= 1.22 + 0.12 * Math.sin(now * 0.0012 + particle.seed);
+      }
+
+      if (currentState === 'thinking') {
+        const shape = currentShapeTarget(particle, now);
+        if (shape) {
+          const t = now * 0.00055;
+          const spreadAngle = particle.homeAngle + Math.sin(particle.seed * 0.017) * TAU + spin * (0.05 + particle.depth * 0.08);
+          const spreadRadius = minSide * (isMobile ? 0.34 : 0.32) * (0.58 + particle.depth * 0.5);
+          const drift = Math.sin(t * 3.2 + particle.seed) * minSide * 0.035;
+          const base = {
+            x: cx + Math.cos(spreadAngle + t * (0.9 + particle.depth)) * spreadRadius + Math.cos(particle.seed + t * 5) * drift,
+            y: cy + Math.sin(spreadAngle * 1.13 + t * (1.1 + particle.depth)) * spreadRadius * 0.74 + Math.sin(particle.seed + t * 4) * drift,
+          };
+          return blendTargets(base, shape);
+        }
+
+        const t = now * 0.00055;
+        const independentAngle = particle.homeAngle
+          + spin * (0.05 + particle.depth * 0.1)
+          + Math.sin(t * (0.9 + particle.depth * 0.7) + particle.seed) * 0.9;
+        const radiusWave = 0.78 + Math.sin(t * 2.7 + particle.seed * 1.31) * 0.22;
+        const independentRadius = minSide * (isMobile ? 0.34 : 0.31) * (0.42 + particle.depth * 0.62) * radiusWave;
+        const streamX = Math.sin(t * 7.1 + particle.seed * 2.7) * minSide * 0.075;
+        const streamY = Math.cos(t * 6.3 + particle.seed * 3.1) * minSide * 0.052;
+        const base = {
+          x: cx + Math.cos(independentAngle) * independentRadius + streamX,
+          y: cy + Math.sin(independentAngle * 1.11) * independentRadius * 0.72 + streamY,
+        };
+        return base;
+      }
+
+      const base = {
+        x: cx + ((particle.homeTriX + triangleLean * particle.homeTriY) * triangleScale * trianglePulse * triangleOutward),
+        y: cy + (particle.homeTriY * triangleScale * 0.94 * trianglePulse * triangleOutward),
+      };
+      if (speaking) {
+        const jitter = minSide * (0.006 + audioEnergy * 0.009 + speechHigh * 0.014);
+        const tangent = triangleAngle + Math.PI / 2;
+        const articulation = minSide * (speechMid * 0.012 + speechHigh * 0.01 + speechTransient * 0.012) * particle.depth;
+        const consonantRipple = speechTransient * minSide * 0.009 * Math.sin(now * 0.015 + triangleDistance * 8 + particle.seed);
+        base.x += Math.sin(now * 0.006 + particle.seed * 1.9) * jitter;
+        base.y += Math.cos(now * 0.007 + particle.seed * 1.4) * jitter;
+        base.x += Math.cos(tangent + particle.seed) * articulation;
+        base.y += Math.sin(tangent + particle.seed * 0.7) * articulation * 0.82;
+        base.x += Math.cos(triangleAngle) * consonantRipple;
+        base.y += Math.sin(triangleAngle) * consonantRipple * 0.85;
+      }
+      const shape = currentState === 'error'
+        ? errorShapeTarget(particle, now)
+        : currentShapeTarget(particle, now);
+      return blendTargets(base, shape);
+    }
+
+    function drawBackground(now) {
+      ctx.fillStyle = '#020303';
+      ctx.fillRect(0, 0, width, height);
+      if (currentState === 'thinking') {
+        ctx.fillStyle = `rgba(242, 184, 92, ${0.035 + 0.02 * Math.sin(now * 0.003)})`;
+        ctx.fillRect(0, 0, width, height);
+      } else if (currentState === 'speaking') {
+        const speechGlow = Math.max(remoteBands.low * 0.55, remoteBands.mid * 0.42, remoteBands.high * 0.34, remoteBands.transient * 0.6);
+        ctx.fillStyle = `rgba(242, 184, 92, ${0.012 + Math.min(0.045, speechGlow * 0.045)})`;
+        ctx.fillRect(0, 0, width, height);
+      }
+    }
+
+    function drawToolTickers(now) {
+      if (!activeToolTickers.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      activeToolTickers = activeToolTickers.filter((ticker) => {
+        const progress = Math.min(1, Math.max(0, (now - ticker.startedAt) / ticker.durationMs));
+        if (progress >= 1) return false;
+        const y = Math.max(24, Math.min(height - 24, ticker.topRatio * height));
+        const x = (width + 24) + ((-ticker.width - 48 - width) * progress);
+        const alpha = Math.min(0.95, Math.min(progress / 0.08, (1 - progress) / 0.14));
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(ticker.bitmap, x, y - ticker.height / 2, ticker.width, ticker.height);
+        return true;
+      });
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    function drawParticles(now) {
+      const audioEnergy = Math.max(micLevel * 0.5, remoteLevel);
+      const basePhysics = statePhysics(currentState);
+      const cueMode = shouldShowVisualCue(now);
+      const speakingMode = currentState === 'speaking' && !cueMode;
+      const speechDrive = Math.max(
+        displayAudioLevel,
+        remoteBands.low * 0.7,
+        remoteBands.mid * 0.95,
+        remoteBands.high * 0.78,
+        remoteBands.transient * 0.9,
+      );
+      const speakingEnergy = speakingMode ? Math.max(speechDrive, 0.14) : 0;
+      const physics = cueMode
+        ? {
+            spring: 0.16,
+            damping: 0.68,
+            wander: basePhysics.wander * 0.26,
+            scatter: basePhysics.scatter * 0.08,
+          }
+        : speakingMode
+          ? {
+              spring: basePhysics.spring + speakingEnergy * 0.095,
+              damping: 0.73,
+              wander: basePhysics.wander + 0.28 + speakingEnergy * 0.62,
+              scatter: basePhysics.scatter + speakingEnergy * 0.055,
+            }
+        : basePhysics;
+      const colorByState = {
+        thinking: [242, 184, 92],
+        speaking: [242, 184, 92],
+        listening: [242, 184, 92],
+        error: [255, 116, 109],
+        disconnected: [126, 199, 255],
+      };
+      let color = colorByState[currentState] || [210, 246, 235];
+      if (speakingMode) {
+        color = [
+          Math.min(255, Math.round(242 + remoteBands.low * 10 + remoteBands.transient * 14)),
+          Math.min(238, Math.round(184 + remoteBands.mid * 44 + remoteBands.high * 22)),
+          Math.min(178, Math.round(92 + remoteBands.high * 64 + remoteBands.transient * 34)),
+        ];
+      }
+
+      displayAudioLevel += (audioEnergy - displayAudioLevel) * 0.12;
+      meterEl.style.setProperty('--meter-level', `${Math.min(100, Math.round(Math.max(micLevel, remoteLevel) * 100))}%`);
+      spin += currentState === 'thinking'
+        ? 0.024
+        : currentState === 'speaking'
+          ? 0.018 + displayAudioLevel * 0.06
+          : 0.006 + displayAudioLevel * 0.012;
+
+      ctx.globalCompositeOperation = 'lighter';
+      for (const particle of particles) {
+        const target = particleTarget(particle, now, displayAudioLevel);
+        const noiseX = Math.sin(now * 0.0017 + particle.seed) * physics.wander;
+        const noiseY = Math.cos(now * 0.0013 + particle.seed * 1.7) * physics.wander;
+        const scatterX = Math.sin(particle.seed * 2.1 + now * 0.0009) * width * 0.18 * physics.scatter;
+        const scatterY = Math.cos(particle.seed * 1.8 + now * 0.0007) * height * 0.12 * physics.scatter;
+        particle.vx += ((target.x + scatterX - particle.x) * physics.spring + noiseX) * particle.depth;
+        particle.vy += ((target.y + scatterY - particle.y) * physics.spring + noiseY) * particle.depth;
+        particle.vx *= physics.damping;
+        particle.vy *= physics.damping;
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+
+        const speed = Math.min(1, Math.hypot(particle.vx, particle.vy) / 18);
+        const alpha = 0.22
+          + particle.depth * 0.58
+          + displayAudioLevel * (speakingMode ? 0.38 : 0.25);
+        const size = particle.size * (0.8
+          + particle.depth * 1.15
+          + (cueMode ? visualCuePeak * 0.34 : 0)
+          + displayAudioLevel * (speakingMode ? 0.78 : 0.9)
+          + (speakingMode ? (remoteBands.high * 0.42 + remoteBands.transient * 0.54) : 0));
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${Math.min(0.95, alpha)})`;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, size, 0, TAU);
+        ctx.fill();
+
+        if (currentState === 'thinking' && speed > 0.22 && !reducedMotion && !cueMode && particle.index % 2 === 0) {
+          ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.08 + speed * 0.16})`;
+          ctx.lineWidth = Math.max(0.4, particle.size * 0.42);
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(particle.x - particle.vx * 1.7, particle.y - particle.vy * 1.7);
+          ctx.stroke();
+        }
+
+        if (speakingMode && speed > 0.12 && !reducedMotion && particle.index % 2 === 0) {
+          ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.05 + speed * 0.12})`;
+          ctx.lineWidth = Math.max(0.35, particle.size * 0.34);
+          ctx.beginPath();
+          ctx.moveTo(particle.x, particle.y);
+          ctx.lineTo(particle.x - particle.vx * 1.9, particle.y - particle.vy * 1.9);
+          ctx.stroke();
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function animate(now) {
+      const delta = Math.min(32, now - lastFrame);
+      lastFrame = now;
+      if (delta > 0) {
+        micLevel *= 0.94;
+        remoteLevel *= 0.92;
+      }
+      drawBackground(now);
+      drawToolTickers(now);
+      drawParticles(now);
+      requestAnimationFrame(animate);
+    }
+
+    function readAnalyser(analyser, onLevel, onBands) {
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let smoothedEnergy = 0;
+      let active = true;
+      const tick = () => {
+        if (!active) return;
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (const value of data) sum += value;
+        const level = Math.min(1, (sum / data.length) / 110);
+        onLevel(level);
+        if (onBands) {
+          const low = Math.min(1, averageFrequencyBand(data, analyser, 80, 320) * 1.8);
+          const mid = Math.min(1, averageFrequencyBand(data, analyser, 320, 2100) * 1.55);
+          const high = Math.min(1, averageFrequencyBand(data, analyser, 2100, 7200) * 1.85);
+          const energy = (low * 0.32) + (mid * 0.48) + (high * 0.2);
+          const transient = Math.max(0, energy - smoothedEnergy) * 3.4;
+          smoothedEnergy += (energy - smoothedEnergy) * 0.18;
+          onBands({ low, mid, high, transient: Math.min(1, transient) });
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+      return () => {
+        active = false;
+      };
+    }
+
+    async function ensureAudioContext() {
+      if (!audioContext) {
+        audioContext = new AudioContext();
+        applyAudioContextOutput().catch((err) => {
+          log(`Thinking audio output unavailable: ${err.message || err}`);
+        });
+      }
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      return audioContext;
+    }
+
+    async function attachMicAnalyser(track) {
+      try {
+        if (micAnalyserStop) {
+          micAnalyserStop();
+          micAnalyserStop = null;
+        }
+        const context = await ensureAudioContext();
+        const stream = new MediaStream([track.mediaStreamTrack]);
+        const source = context.createMediaStreamSource(stream);
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const stopReader = readAnalyser(analyser, (level) => {
+          micLevel = Math.max(micLevel, level);
+          detectVoiceInterrupt(level);
+        });
+        micAnalyserStop = () => {
+          stopReader();
+          try {
+            source.disconnect();
+          } catch (_) {}
+        };
+        analyserNodes.push({ source, analyser });
+      } catch (err) {
+        log(`Mic meter unavailable: ${err.message || err}`);
+      }
+    }
+
+    function audioInputConstraints() {
+      const constraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      if (selectedAudioInputId) {
+        constraints.deviceId = { exact: selectedAudioInputId };
+      }
+      return constraints;
+    }
+
+    async function createMicrophoneTrack() {
+      try {
+        return await createLocalAudioTrack(audioInputConstraints());
+      } catch (err) {
+        if (!selectedAudioInputId) throw err;
+        log(`Selected microphone unavailable, falling back to system default: ${err.message || err}`);
+        selectedAudioInputId = '';
+        localStorage.removeItem('hermes.audioInputId');
+        renderAudioInputSelect();
+        return createLocalAudioTrack(audioInputConstraints());
+      }
+    }
+
+    async function publishMicrophone() {
+      if (!room || room.state !== 'connected') return;
+      const previousTrack = localAudioTrack;
+      const wasMuted = muted;
+      const nextTrack = await createMicrophoneTrack();
+      if (previousTrack) {
+        try {
+          await room.localParticipant.unpublishTrack(previousTrack);
+        } catch (err) {
+          log(`Old microphone unpublish warning: ${err.message || err}`);
+        }
+      }
+      localAudioTrack = nextTrack;
+      await room.localParticipant.publishTrack(localAudioTrack);
+      await attachMicAnalyser(localAudioTrack);
+      if (wasMuted) {
+        await setMicrophoneMuted(true);
+      } else {
+        updateMuteButton();
+      }
+      muteBtn.disabled = false;
+      const label = localAudioTrack.mediaStreamTrack?.label || 'microphone';
+      log(`Microphone input: ${label}`);
+      await refreshAudioInputDevices();
+    }
+
+    async function switchAudioInput() {
+      selectedAudioInputId = audioInputSelectEl.value || '';
+      if (selectedAudioInputId) {
+        localStorage.setItem('hermes.audioInputId', selectedAudioInputId);
+      } else {
+        localStorage.removeItem('hermes.audioInputId');
+      }
+      if (!room || room.state !== 'connected') {
+        showToast('Audio input will be used on reconnect.');
+        return;
+      }
+      audioInputSelectEl.disabled = true;
+      try {
+        await publishMicrophone();
+        showToast('Audio input changed.');
+      } catch (err) {
+        if (selectedAudioInputId) {
+          selectedAudioInputId = '';
+          localStorage.removeItem('hermes.audioInputId');
+          renderAudioInputSelect();
+        }
+        showToast('Audio input did not switch.');
+        log(`MIC INPUT ERROR: ${err.message || err}`);
+      } finally {
+        audioInputSelectEl.disabled = false;
+      }
+    }
+
+    function detectVoiceInterrupt(level) {
+      if (!ENABLE_VOICE_BARGE_IN) {
+        interruptStartedAt = 0;
+        return;
+      }
+      if (currentState !== 'speaking' || muted || !room || !room.localParticipant) {
+        interruptStartedAt = 0;
+        return;
+      }
+      const now = performance.now();
+      if (speakingStateStartedAt && now - speakingStateStartedAt < INTERRUPT_AFTER_SPEAKING_MS) {
+        interruptStartedAt = 0;
+        return;
+      }
+      const dynamicThreshold = Math.max(
+        INTERRUPT_MIC_THRESHOLD,
+        (remoteLevel * INTERRUPT_REMOTE_RATIO) + INTERRUPT_MIN_REMOTE_MARGIN,
+      );
+      const aboveVoice = level >= dynamicThreshold;
+      if (!aboveVoice) {
+        interruptStartedAt = 0;
+        return;
+      }
+      if (!interruptStartedAt) {
+        interruptStartedAt = now;
+        return;
+      }
+      if (now - interruptStartedAt < INTERRUPT_HOLD_MS || now - lastInterruptAt < INTERRUPT_COOLDOWN_MS) {
+        return;
+      }
+      lastInterruptAt = now;
+      interruptStartedAt = 0;
+      sendInterrupt('barge-in');
+    }
+
+    async function sendInterrupt(reason) {
+      if (!room || !room.localParticipant) return;
+      try {
+        const payload = new TextEncoder().encode(JSON.stringify({
+          type: 'interrupt',
+          reason,
+          at: Date.now() / 1000,
+        }));
+        await room.localParticipant.publishData(payload, {
+          reliable: true,
+          topic: 'hermes.control',
+        });
+        clearToolReadout();
+      } catch (err) {
+        log(`Interrupt failed: ${err.message || err}`);
+      }
+    }
+
+    async function startLiveKitAudio() {
+      if (room && typeof room.startAudio === 'function') {
+        try {
+          await room.startAudio();
+        } catch (err) {
+          log(`LiveKit audio unlock blocked: ${err.message || err}`);
+        }
+      }
+      for (const element of remoteAudioEls) {
+        try {
+          element.muted = false;
+          element.volume = 1;
+          await element.play();
+        } catch (err) {
+          log(`Remote audio playback blocked: ${err.message || err}`);
+        }
+      }
+    }
+
+    async function attachRemoteAnalyser(track) {
+      try {
+        const mediaTrack = track.mediaStreamTrack;
+        if (!mediaTrack) return;
+        const context = await ensureAudioContext();
+        const stream = new MediaStream([mediaTrack]);
+        const source = context.createMediaStreamSource(stream);
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        analyserNodes.push({ source, analyser });
+        readAnalyser(analyser, (level) => {
+          remoteLevel = Math.max(remoteLevel, level);
+        }, (bands) => {
+          remoteBands.low += (bands.low - remoteBands.low) * 0.2;
+          remoteBands.mid += (bands.mid - remoteBands.mid) * 0.24;
+          remoteBands.high += (bands.high - remoteBands.high) * 0.28;
+          remoteBands.transient = Math.max(bands.transient, remoteBands.transient * 0.86);
+        });
+      } catch (err) {
+        log(`Reply meter unavailable: ${err.message || err}`);
+      }
+    }
+
+    function resetRoom() {
+      if (room) {
+        if (typeof room.removeAllListeners === 'function') {
+          room.removeAllListeners();
+        }
+      }
+      room = null;
+      if (micAnalyserStop) {
+        micAnalyserStop();
+        micAnalyserStop = null;
+      }
+      localAudioTrack = null;
+      participantIdentity = '';
+      analyserNodes = [];
+      remoteBands = { low: 0, mid: 0, high: 0, transient: 0 };
+      for (const element of remoteAudioEls) {
+        element.remove();
+      }
+      remoteAudioEls = [];
+      muted = micMode !== 'open';
+      updateMuteButton();
+    }
+
+    async function connect() {
+      const now = Date.now();
+      if (now - lastConnectAttempt < 1200) return;
+      lastConnectAttempt = now;
+      reconnectBtn.disabled = true;
+      try {
+        unlockThinkingSound();
+        if (room) {
+          await room.disconnect();
+          resetRoom();
+        }
+        setStatus('Connecting', false);
+        setAgentState('connecting');
+        const tokenResp = await fetch('/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nameEl.value || 'Guest', desktop: desktopShell }),
+        });
+        if (!tokenResp.ok) throw new Error(`Token endpoint returned HTTP ${tokenResp.status}`);
+        const tokenData = await tokenResp.json();
+
+        room = new Room({
+          adaptiveStream: false,
+          dynacast: false,
+        });
+
+        room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+          if (track.kind !== Track.Kind.Audio) return;
+          const fromAgent = participant.identity === AGENT_IDENTITY || participant.name === AGENT_NAME;
+          if (!fromAgent) {
+            log(`Ignoring non-agent audio from ${participant.name || participant.identity}`);
+            return;
+          }
+          const element = track.attach();
+          element.autoplay = true;
+          element.playsInline = true;
+          element.muted = false;
+          element.volume = 1;
+          element.dataset.livekitRemoteAudio = 'true';
+          document.body.appendChild(element);
+          remoteAudioEls.push(element);
+          applyAudioOutputToElement(element).catch((err) => {
+            log(`Reply audio output unavailable: ${err.message || err}`);
+          });
+          element.play().catch((err) => {
+            log(`Hidden media element playback blocked: ${err.message || err}`);
+          });
+          attachRemoteAnalyser(track);
+          startLiveKitAudio();
+          setAgentState('speaking');
+          log(`Audio subscribed from ${participant.name || participant.identity}`);
+        });
+
+        room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+          try {
+            const text = new TextDecoder().decode(payload);
+            const data = JSON.parse(text);
+            if (topic === 'hermes.tool_cue' || data.type === 'tool_cue') {
+              const visualCue = visualCueForTool(data);
+              queueVisualCue(visualCue.kind, visualCue.value);
+              cueToolSound(visualCue);
+              spawnToolTicker(data, visualCue);
+              showToolReadout(data, visualCue);
+              const toolName = String(data.name || data.tool || 'tool').replace(/_/g, ' ');
+              const toolStage = data.stage === 'generating' ? 'preparing' : 'running';
+              appendTranscriptEntry('tool', toolName, data.label || '', {
+                icon: visualCue.emoji || data.emoji || '⚙',
+                at: data.at,
+                badge: toolStage,
+              });
+              return;
+            }
+            if (topic === 'hermes.transcript' || data.type === 'transcript') {
+              const role = data.role === 'assistant' ? 'assistant' : 'user';
+              appendTranscriptEntry(
+                role,
+                role === 'assistant' ? 'Hermes' : 'You',
+                data.text || '',
+                { icon: role === 'assistant' ? 'HV' : 'You', at: data.at },
+              );
+              return;
+            }
+            if (topic === 'hermes.voice_affect' || data.type === 'voice_affect') {
+              setAffectReadout(data);
+              return;
+            }
+            if (topic !== 'hermes.agent_state') return;
+            if (data.type !== 'agent_state') return;
+            const errorDetail = String(data.error || '').trim();
+            const stageDetail = data.stage === 'transcribing'
+              ? 'Transcribing what you said.'
+              : data.stage === 'hermes'
+                ? 'Checking Hermes, memory, tools, or calendar.'
+                : data.stage === 'kimi'
+                  ? 'Thinking with Kimi.'
+                  : data.stage === 'tts'
+                    ? 'Preparing the voice reply.'
+                    : '';
+            const detail = errorDetail || stageDetail;
+            if (errorDetail) {
+              log(`ATTENTION: ${errorDetail}`);
+            }
+            if (data.toolCue) {
+              const visualCue = visualCueForTool(data.toolCue);
+              queueVisualCue(visualCue.kind, visualCue.value);
+              cueToolSound(visualCue);
+              spawnToolTicker(data.toolCue, visualCue);
+              showToolReadout(data.toolCue, visualCue);
+            }
+            if (data.state === 'speaking' || data.stage === 'tts') {
+              startLiveKitAudio();
+            }
+            setAgentState(data.state, detail);
+          } catch (err) {
+            log(`State message error: ${err.message || err}`);
+          }
+        });
+
+        room.on(RoomEvent.Disconnected, () => {
+          setStatus('Disconnected', false);
+          setAgentState('disconnected');
+          muteBtn.disabled = true;
+          sendTextBtn.disabled = true;
+          reconnectBtn.disabled = false;
+          log('Disconnected');
+        });
+
+        await room.connect(tokenData.url, tokenData.token);
+        participantIdentity = tokenData.identity;
+        try {
+          await publishMicrophone();
+        } catch (err) {
+          localAudioTrack = null;
+          muteBtn.disabled = true;
+          const insecureMicOrigin = !window.isSecureContext && !['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+          if (insecureMicOrigin) {
+            showToast('Microphone requires HTTPS or localhost. Typed messages still work.');
+            log('Microphone unavailable: open this app over HTTPS or localhost to allow browser mic access.');
+          } else {
+            showToast('Microphone is unavailable. Typed messages still work.');
+            log(`Microphone unavailable: ${err.message || err}`);
+          }
+        }
+
+        setStatus('Connected', true);
+        setAgentState('listening');
+        sendTextBtn.disabled = false;
+        reconnectBtn.disabled = false;
+        log(`Connected to ${tokenData.room}`);
+      } catch (err) {
+        setStatus('Error', false);
+        setAgentState('error');
+        showToast('Voice room did not open. Reconnect is available.');
+        log(`ERROR: ${err.message || err}`);
+        muteBtn.disabled = true;
+        sendTextBtn.disabled = !room || room.state !== 'connected';
+        reconnectBtn.disabled = false;
+      }
+    }
+
+    function updateMuteButton() {
+      const micActive = !muted;
+      const modeLabel = micMode === 'open' ? 'open mic' : 'software toggle';
+      muteBtn.classList.remove('active', 'talkback-active');
+      muteBtn.classList.toggle('mic-active', micActive);
+      dockEl?.classList.remove('talkback-active');
+      dockEl?.classList.toggle('mic-active', micActive);
+      muteBtn.setAttribute('aria-label', micActive ? 'Mute microphone' : 'Unmute microphone');
+      muteBtn.title = micActive ? `Mute microphone (${modeLabel})` : `Unmute microphone (${modeLabel})`;
+    }
+
+    async function setMicrophoneMuted(nextMuted, reason = '') {
+      muted = Boolean(nextMuted);
+      updateMuteButton();
+      if (!localAudioTrack) return;
+      if (room?.localParticipant?.setMicrophoneEnabled) {
+        await room.localParticipant.setMicrophoneEnabled(!muted);
+      } else if (muted) {
+        await localAudioTrack.mute();
+      } else {
+        await localAudioTrack.unmute();
+      }
+      if (reason) {
+        log(reason);
+      } else {
+        log(muted ? 'Microphone muted' : 'Microphone live');
+      }
+    }
+
+    async function toggleMute() {
+      await setMicrophoneMuted(!muted);
+    }
+
+    async function sendTypedTurn() {
+      const text = typedTextEl.value.trim();
+      let completed = false;
+      if (!text && !attachedFiles.length) return;
+      if (!room || room.state !== 'connected') {
+        showToast('Connect first.');
+        log('Connect first');
+        return;
+      }
+      startLiveKitAudio();
+      sendTextBtn.disabled = true;
+      typedTextEl.disabled = true;
+      attachFileBtn.disabled = true;
+      try {
+        warmFeedbackAudio().catch(() => {});
+        setAgentState('thinking', 'Checking Hermes now.');
+        const attachments = await buildAttachmentPayload();
+        const resp = await fetch('/text-turn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, attachments, identity: participantIdentity || 'typed-web' }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const data = await resp.json();
+        typedTextEl.value = '';
+        attachedFiles = [];
+        renderAttachments();
+        completed = true;
+      } catch (err) {
+        setAgentState('error');
+        log(`TEXT ERROR: ${err.message || err}`);
+      } finally {
+        if (completed) {
+          setAgentState('listening');
+        }
+        typedTextEl.disabled = false;
+        attachFileBtn.disabled = false;
+        sendTextBtn.disabled = !room || room.state !== 'connected';
+        typedTextEl.focus();
+      }
+    }
+
+    muteBtn.addEventListener('click', toggleMute);
+    reconnectBtn.addEventListener('click', connect);
+    chatToggleBtn.addEventListener('click', () => openPanel('chat'));
+    settingsToggleBtn.addEventListener('click', () => openPanel('settings'));
+    sendTextBtn.addEventListener('click', sendTypedTurn);
+    attachFileBtn.addEventListener('click', () => fileInputEl.click());
+    fileInputEl.addEventListener('change', () => {
+      attachedFiles = attachedFiles.concat(Array.from(fileInputEl.files || [])).slice(0, 5);
+      fileInputEl.value = '';
+      renderAttachments();
+    });
+    modelSelectEl.addEventListener('change', () => queueSettingsSave({ model: modelSelectEl.value }));
+    reasoningSelectEl.addEventListener('change', () => queueSettingsSave({ reasoningEffort: reasoningSelectEl.value }));
+    ttsSelectEl.addEventListener('change', () => queueSettingsSave({ ttsBackend: ttsSelectEl.value }));
+    audioInputSelectEl.addEventListener('change', switchAudioInput);
+    audioOutputSelectEl.addEventListener('change', switchAudioOutput);
+    micModeSelectEl.addEventListener('change', () => {
+      setMicMode(micModeSelectEl.value).catch((err) => log(`Mic mode update failed: ${err.message || err}`));
+    });
+    desktopShortcutSelectEl.addEventListener('change', saveDesktopShortcut);
+    sttSelectEl.addEventListener('change', () => queueSettingsSave({ sttProvider: sttSelectEl.value }));
+    sttModelInputEl.addEventListener('change', () => queueSettingsSave({ sttModel: sttModelInputEl.value }));
+    saveVoiceInstructionsBtn.addEventListener('click', () => saveSettings({
+      voiceInstructions: voiceInstructionsInputEl.value,
+    }));
+    voiceBehaviorOpenBtn.addEventListener('click', () => {
+      voiceBehaviorPageEl.classList.add('open');
+      voiceBehaviorPageEl.setAttribute('aria-hidden', 'false');
+    });
+    voiceBehaviorBackBtn.addEventListener('click', () => {
+      closeVoiceBehaviorPage();
+    });
+    voiceBehaviorBackBottomBtn.addEventListener('click', () => {
+      closeVoiceBehaviorPage();
+    });
+    resetVoiceInstructionsBtn.addEventListener('click', () => {
+      const fallback = runtimeSettings?.defaultVoiceInstructions || '';
+      voiceInstructionsInputEl.value = fallback;
+    });
+    emotionToggleEl.addEventListener('change', () => queueSettingsSave({ emotionRecognition: emotionToggleEl.checked }));
+    typedTextEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendTypedTurn();
+      }
+    });
+    window.addEventListener('hermes:desktop-talkback', (event) => {
+      const action = event.detail?.action || 'toggle';
+      if (action === 'start' || action === 'open') {
+        setMicrophoneMuted(false).catch((err) => log(`Mic start failed: ${err.message || err}`));
+      } else if (action === 'stop' || action === 'close') {
+        setMicrophoneMuted(true).catch((err) => log(`Mic stop failed: ${err.message || err}`));
+      } else {
+        toggleMute().catch((err) => log(`Mic toggle failed: ${err.message || err}`));
+      }
+    });
+    window.addEventListener('hermes:desktop-config', (event) => {
+      renderDesktopShortcutConfig(event.detail || {});
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && voiceBehaviorPageEl.classList.contains('open')) {
+        event.preventDefault();
+        closeVoiceBehaviorPage();
+        return;
+      }
+      if (!desktopShell || event.repeat || event.target === typedTextEl) return;
+      if (event.code === 'Space' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        toggleMute().catch((err) => log(`Mic shortcut failed: ${err.message || err}`));
+      }
+    });
+    window.addEventListener('resize', resize);
+    window.addEventListener('pointerdown', () => {
+      ensureAudioContext().catch(() => {});
+      startLiveKitAudio();
+    });
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', () => {
+        refreshAudioInputDevices().catch(() => {});
+      });
+    }
+
+    resize();
+    renderMicModeSetting();
+    updateMuteButton();
+    requestAnimationFrame(animate);
+    setAgentState('starting');
+    loadSettings();
+    loadDesktopConfig();
+    refreshAudioInputDevices().catch(() => {});
+    window.setTimeout(connect, 250);
+  </script>
+</body>
+</html>

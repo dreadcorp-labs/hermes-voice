@@ -1,0 +1,77 @@
+name: ${HERMES_VOICE_COMPOSE_PROJECT:-hermes-voice}
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.9.2
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "${LIVEKIT_PORT:-7880}:7880/tcp"
+      - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
+      - "${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}:${LIVEKIT_RTC_UDP_START:-50000}-${LIVEKIT_RTC_UDP_END:-50100}/udp"
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml:ro
+
+  tts:
+    build:
+      context: ${HERMES_VOICE_SOURCE_DIR:-..}/tts
+    image: hermes-voice/tts:local
+    restart: unless-stopped
+    init: true
+    environment:
+      GLAADOS_DEFAULT_VOICE: ${HERMES_TTS_DEFAULT_VOICE:-bf_emma}
+      GLAADOS_DEFAULT_LANG: ${HERMES_TTS_DEFAULT_LANG:-en-gb}
+      GLAADOS_KOKORO_ONLY: "true"
+      GLAADOS_TTS_BACKEND: kokoro_glados
+      GLAADOS_POCKETTTS_WARM_ON_START: "false"
+      GLAADOS_GRAILLON_ENABLED: "true"
+      GLAADOS_EFFECTS_PRESET: ${HERMES_TTS_EFFECTS_PRESET:-g_major_pressurized}
+      GLAADOS_TUNE_KEY: ${HERMES_TTS_TUNE_KEY:-G}
+      GLAADOS_TUNE_SCALE: ${HERMES_TTS_TUNE_SCALE:-major}
+      HF_HOME: /data/huggingface
+      OMP_NUM_THREADS: ${HERMES_TTS_THREADS:-4}
+    ports:
+      - "${TTS_PORT:-8890}:8889"
+    volumes:
+      - tts-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8889/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  sidecar:
+    build:
+      context: ${HERMES_VOICE_SOURCE_DIR:-..}
+      dockerfile: sidecar/Dockerfile
+    image: hermes-voice/sidecar:local
+    restart: unless-stopped
+    init: true
+    depends_on:
+      - livekit
+      - tts
+    env_file:
+      - ./config/hermes-voice.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WEBUI_PORT:-8765}:8765"
+    volumes:
+      - ./config:/config
+      - sidecar-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sidecar-data:
+  tts-data:

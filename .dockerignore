@@ -1,0 +1,10 @@
+.git
+benchmarks
+desktop/node_modules
+deploy
+docs
+packaging/config
+packaging/data
+**/__pycache__
+**/*.pyc
+*.log

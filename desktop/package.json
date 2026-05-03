@@ -1,0 +1,13 @@
+{
+  "name": "hermes-voice-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for the Hermes Voice client.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^41.5.0"
+  }
+}

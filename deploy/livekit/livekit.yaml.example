@@ -1,0 +1,25 @@
+port: 7880
+
+redis:
+  address: 127.0.0.1:6385
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: false
+  node_ip: 127.0.0.1
+
+prometheus_port: 6789
+
+keys:
+  hermes_livekit: replace-me
+
+logging:
+  level: info
+  pion_level: warn
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  departure_timeout: 30

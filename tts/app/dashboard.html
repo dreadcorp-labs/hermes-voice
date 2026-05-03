@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hermes Voice Dev</title>
+  <style>
+    :root {
+      --bg: #0b1016;
+      --panel: rgba(17, 24, 39, 0.82);
+      --panel-2: rgba(23, 32, 52, 0.86);
+      --text: #eef4ff;
+      --muted: #9db0c8;
+      --line: rgba(162, 184, 217, 0.22);
+      --accent: #7de2d1;
+      --accent-2: #ffdb7a;
+      --danger: #ff7b72;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(125, 226, 209, 0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(255, 219, 122, 0.12), transparent 28%),
+        linear-gradient(180deg, #101827 0%, #070b12 100%);
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 24px auto 48px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero, .panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.24);
+    }
+
+    .hero {
+      padding: 24px 24px 20px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p, .status {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .hero-grid, .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+    }
+
+    .panel {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    h2, h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      font-size: 15px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+    }
+
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+      background: rgba(9, 14, 23, 0.82);
+    }
+
+    textarea {
+      min-height: 104px;
+      resize: vertical;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .value {
+      min-width: 52px;
+      text-align: right;
+      color: var(--accent-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .toolbar input[type="text"] {
+      min-width: 180px;
+      width: auto;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      color: #061018;
+      background: linear-gradient(135deg, var(--accent), #95f3ff);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: rgba(18, 27, 43, 0.88);
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+
+    button.warn {
+      color: #24130d;
+      background: linear-gradient(135deg, var(--accent-2), #ff9d7a);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(10, 16, 27, 0.74);
+      padding: 14px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 7px 11px;
+      color: var(--muted);
+      background: rgba(10, 16, 27, 0.74);
+      font-size: 12px;
+    }
+
+    audio {
+      width: 100%;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .error {
+      color: var(--danger);
+      min-height: 20px;
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 20px, 1180px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="section-head">
+        <div>
+          <h1>Hermes Voice Dev</h1>
+          <p>Live-tune Kokoro voices, Graillon, compression, and ambience without rebuilding the container.</p>
+        </div>
+        <div class="pill-row">
+          <span class="pill" id="pill-backend">Backend: loading</span>
+          <span class="pill" id="pill-graillon">Graillon: loading</span>
+          <span class="pill" id="pill-preset">Preset: loading</span>
+        </div>
+      </div>
+      <div class="hero-grid">
+        <label>
+          Active Backend
+          <select id="tts_backend"></select>
+        </label>
+        <label>
+          Built-in Preset
+          <select id="effects_preset"></select>
+        </label>
+        <label>
+          Default Voice
+          <select id="voice"></select>
+        </label>
+        <label>
+          Key
+          <select id="graillon.key"></select>
+        </label>
+        <label>
+          Scale
+          <select id="graillon.scale"></select>
+        </label>
+      </div>
+      <div class="hero-grid">
+        <label>
+          User Preset Slot
+          <select id="user-preset-slot"></select>
+        </label>
+        <label>
+          Slot Label
+          <input type="text" id="user-preset-label" placeholder="Custom 1">
+        </label>
+      </div>
+      <div class="toolbar">
+        <button id="apply-preset">Apply Preset</button>
+        <button id="load-user-preset" class="secondary">Load User Slot</button>
+        <button id="save-user-preset" class="secondary">Save User Slot</button>
+        <button id="save-config" class="secondary">Save Live Settings</button>
+        <button id="reload-config" class="secondary">Reload</button>
+      </div>
+      <div class="pill-row" id="user-preset-pills"></div>
+      <div class="footer-note" id="backend-note">
+        Kokoro renders through the Graillon/effects controls below.
+      </div>
+      <p class="status" id="status">Loading runtime settings…</p>
+      <div class="error" id="error"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>Preview</h2>
+        <span class="pill" id="pill-output">Output: idle</span>
+      </div>
+      <label>
+        Test Line
+        <textarea id="preview-text">This is a live tuning preview for the voice lab.</textarea>
+      </label>
+      <div class="grid">
+        <label>
+          Preview Voice
+          <select id="preview-voice"></select>
+        </label>
+        <label>
+          Response Format
+          <select id="preview-format">
+            <option value="mp3">mp3</option>
+            <option value="wav" selected>wav</option>
+            <option value="ogg">ogg</option>
+            <option value="flac">flac</option>
+          </select>
+        </label>
+        <label>
+          Speed
+          <input type="number" id="preview-speed" min="0.5" max="2" step="0.05" value="1">
+        </label>
+      </div>
+      <div class="toolbar">
+        <button id="preview-button" class="warn">Save + Preview</button>
+      </div>
+      <audio id="player" controls preload="none"></audio>
+      <div class="footer-note">Preview saves the current dashboard state first, then renders speech through the live `/v1/audio/speech` endpoint using the currently selected backend.</div>
+    </section>
+
+    <section class="panel" id="inworld-panel">
+      <div class="section-head">
+        <h2>Inworld</h2>
+        <span class="pill" id="pill-inworld">Inworld: loading</span>
+      </div>
+      <div class="grid">
+        <label>
+          Model
+          <select id="inworld.model"></select>
+        </label>
+        <label>
+          Audio Encoding
+          <select id="inworld.audio_encoding"></select>
+        </label>
+        <label>
+          Timestamp Metadata
+          <select id="inworld.timestamp_type"></select>
+        </label>
+        <label>
+          Text Normalization
+          <select id="inworld.apply_text_normalization"></select>
+        </label>
+      </div>
+      <div id="inworld-controls"></div>
+      <div class="toolbar">
+        <button id="refresh-inworld-voices" class="secondary">Refresh Inworld Voices</button>
+      </div>
+      <div class="footer-note">This dev bundle is Kokoro-only; cloud voices are intentionally hidden.</div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Graillon</h2>
+        <label class="toggle"><input type="checkbox" id="graillon.enabled"> Enable Graillon</label>
+        <div id="graillon-controls"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Post Chain</h2>
+        <details open>
+          <summary>Overall Pitch</summary>
+          <div id="pitch-controls"></div>
+        </details>
+        <details open>
+          <summary>Compressor</summary>
+          <div id="compressor-controls"></div>
+        </details>
+        <details open>
+          <summary>Phaser</summary>
+          <div id="phaser-controls"></div>
+        </details>
+        <details>
+          <summary>Filters</summary>
+          <div id="highpass-controls"></div>
+          <div id="lowpass-controls"></div>
+        </details>
+        <details>
+          <summary>Chorus</summary>
+          <div id="chorus-controls"></div>
+        </details>
+        <details>
+          <summary>Delay</summary>
+          <div id="delay-controls"></div>
+        </details>
+        <details>
+          <summary>Reverb</summary>
+          <div id="reverb-controls"></div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { settings: null, options: null, service: null, userPresets: {} };
+    let previewInFlight = false;
+
+    const controls = {
+      graillon: [
+        { key: "correction", label: "Correction", min: 0, max: 1, step: 0.01 },
+        { key: "amount", label: "Amount", min: 0, max: 1, step: 0.01 },
+        { key: "snap_max_st", label: "Snap Max", min: 0, max: 1, step: 0.01 },
+        { key: "snap_min_st", label: "Snap Min", min: 0, max: 1, step: 0.01 },
+        { key: "smooth", label: "Smooth", min: 0, max: 1, step: 0.01 },
+        { key: "inertia", label: "Inertia", min: 0, max: 1, step: 0.01 },
+        { key: "wet_mix_db", label: "Wet", min: 0, max: 1, step: 0.01 },
+        { key: "dry_mix_db", label: "Dry", min: 0, max: 1, step: 0.01 },
+        { key: "formant", label: "Formant", min: 0, max: 1, step: 0.01 },
+        { key: "chorus", label: "Graillon Chorus", min: 0, max: 1, step: 0.01 },
+        { key: "compressor", label: "Graillon Compressor", min: 0, max: 1, step: 0.01 },
+        { key: "ptm_enabled", label: "PTM Enabled", type: "checkbox" }
+      ],
+      pitch: [
+        { key: "pitch_shift_semitones", label: "Semitones", min: -12, max: 12, step: 0.1, path: "pitch_shift_semitones" }
+      ],
+      compressor: [
+        { key: "enabled", label: "Enable Compressor", type: "checkbox" },
+        { key: "threshold_db", label: "Threshold dB", min: -60, max: 0, step: 0.5 },
+        { key: "ratio", label: "Ratio", min: 1, max: 12, step: 0.1 },
+        { key: "attack_ms", label: "Attack ms", min: 0.1, max: 50, step: 0.1 },
+        { key: "release_ms", label: "Release ms", min: 10, max: 400, step: 1 },
+        { key: "makeup_gain_db", label: "Makeup Gain dB", min: -12, max: 24, step: 0.5 }
+      ],
+      phaser: [
+        { key: "enabled", label: "Enable Phaser", type: "checkbox" },
+        { key: "rate_hz", label: "Rate Hz", min: 0.01, max: 4, step: 0.01 },
+        { key: "depth", label: "Depth", min: 0, max: 1, step: 0.01 },
+        { key: "centre_frequency_hz", label: "Centre Hz", min: 100, max: 4000, step: 10 },
+        { key: "feedback", label: "Feedback", min: 0, max: 0.95, step: 0.01 },
+        { key: "mix", label: "Mix", min: 0, max: 1, step: 0.01 }
+      ],
+      highpass: [
+        { key: "enabled", label: "Enable Highpass", type: "checkbox" },
+        { key: "cutoff_frequency_hz", label: "Cutoff Hz", min: 20, max: 2000, step: 5 }
+      ],
+      lowpass: [
+        { key: "enabled", label: "Enable Lowpass", type: "checkbox" },
+        { key: "cutoff_frequency_hz", label: "Cutoff Hz", min: 500, max: 12000, step: 10 }
+      ],
+      chorus: [
+        { key: "enabled", label: "Enable Chorus", type: "checkbox" },
+        { key: "rate_hz", label: "Rate Hz", min: 0.01, max: 6, step: 0.01 },
+        { key: "depth", label: "Depth", min: 0, max: 1, step: 0.01 },
+        { key: "centre_delay_ms", label: "Centre Delay ms", min: 1, max: 30, step: 0.1 },
+        { key: "feedback", label: "Feedback", min: 0, max: 0.95, step: 0.01 },
+        { key: "mix", label: "Mix", min: 0, max: 1, step: 0.01 }
+      ],
+      delay: [
+        { key: "enabled", label: "Enable Delay", type: "checkbox" },
+        { key: "delay_seconds", label: "Delay sec", min: 0.01, max: 1.5, step: 0.001 },
+        { key: "feedback", label: "Feedback", min: 0, max: 0.95, step: 0.01 },
+        { key: "mix", label: "Mix", min: 0, max: 1, step: 0.01 }
+      ],
+      reverb: [
+        { key: "enabled", label: "Enable Reverb", type: "checkbox" },
+        { key: "room_size", label: "Room Size", min: 0, max: 1, step: 0.01 },
+        { key: "damping", label: "Damping", min: 0, max: 1, step: 0.01 },
+        { key: "wet_level", label: "Wet", min: 0, max: 1, step: 0.01 },
+        { key: "dry_level", label: "Dry", min: 0, max: 1, step: 0.01 },
+        { key: "width", label: "Width", min: 0, max: 1, step: 0.01 }
+      ],
+      inworld: [
+        { key: "sample_rate_hertz", label: "Sample Rate Hz", min: 8000, max: 48000, step: 1000 },
+        { key: "speaking_rate", label: "Speaking Rate", min: 0.25, max: 4, step: 0.05 },
+        { key: "temperature", label: "Temperature", min: 0.05, max: 2, step: 0.05 }
+      ]
+    };
+
+    function setStatus(text, isError = false) {
+      document.getElementById("status").textContent = text;
+      document.getElementById("error").textContent = isError ? text : "";
+      if (!isError) document.getElementById("error").textContent = "";
+    }
+
+    function setPreviewButtonState(isBusy) {
+      previewInFlight = isBusy;
+      const button = document.getElementById("preview-button");
+      button.disabled = isBusy;
+      button.textContent = isBusy ? "Preview Running…" : "Save + Preview";
+    }
+
+    function getNested(obj, path) {
+      return path.split(".").reduce((acc, part) => acc?.[part], obj);
+    }
+
+    function setNested(obj, path, value) {
+      const parts = path.split(".");
+      let target = obj;
+      while (parts.length > 1) {
+        const part = parts.shift();
+        target = target[part];
+      }
+      target[parts[0]] = value;
+    }
+
+    function makeSlider(sectionKey, field) {
+      const wrapper = document.createElement("label");
+      const label = document.createElement("span");
+      label.textContent = field.label;
+      wrapper.appendChild(label);
+      const pair = document.createElement("div");
+      pair.className = "pair";
+      const input = document.createElement("input");
+      input.type = "range";
+      input.min = field.min;
+      input.max = field.max;
+      input.step = field.step;
+      input.id = `${sectionKey}.${field.key}`;
+      const value = document.createElement("span");
+      value.className = "value";
+      value.id = `${input.id}.value`;
+      input.addEventListener("input", () => {
+        value.textContent = Number(input.value).toFixed(field.step < 1 ? 2 : 0);
+      });
+      pair.appendChild(input);
+      pair.appendChild(value);
+      wrapper.appendChild(pair);
+      return wrapper;
+    }
+
+    function makeCheckbox(sectionKey, field) {
+      const label = document.createElement("label");
+      label.className = "toggle";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `${sectionKey}.${field.key}`;
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(field.label));
+      return label;
+    }
+
+    function renderSection(sectionKey, elementId) {
+      const host = document.getElementById(elementId);
+      host.innerHTML = "";
+      controls[sectionKey].forEach(field => {
+        host.appendChild(field.type === "checkbox" ? makeCheckbox(sectionKey, field) : makeSlider(sectionKey, field));
+      });
+    }
+
+    function renderAllSections() {
+      renderSection("graillon", "graillon-controls");
+      renderSection("pitch", "pitch-controls");
+      renderSection("compressor", "compressor-controls");
+      renderSection("phaser", "phaser-controls");
+      renderSection("highpass", "highpass-controls");
+      renderSection("lowpass", "lowpass-controls");
+      renderSection("chorus", "chorus-controls");
+      renderSection("delay", "delay-controls");
+      renderSection("reverb", "reverb-controls");
+      renderSection("inworld", "inworld-controls");
+    }
+
+    function populateSelect(id, values) {
+      const select = document.getElementById(id);
+      select.innerHTML = "";
+      values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
+    function populateBackendSelect(id, backends) {
+      const select = document.getElementById(id);
+      select.innerHTML = "";
+      Object.entries(backends).forEach(([value, meta]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = meta.label;
+        select.appendChild(option);
+      });
+    }
+
+    function voicesForBackend(backend) {
+      return state.options?.voices_by_backend?.[backend] || state.options?.voices || [];
+    }
+
+    function refreshVoiceSelects(backend, preferredVoice) {
+      const voices = voicesForBackend(backend);
+      populateSelect("voice", voices);
+      populateSelect("preview-voice", voices);
+      const selectedVoice = voices.includes(preferredVoice) ? preferredVoice : voices[0];
+      document.getElementById("voice").value = selectedVoice;
+      document.getElementById("preview-voice").value = selectedVoice;
+      return selectedVoice;
+    }
+
+    function prettySlotName(slot) {
+      return slot.replace(/^user_slot_/, "User Slot ");
+    }
+
+    function refreshUserPresetUI() {
+      const slotSelect = document.getElementById("user-preset-slot");
+      const selectedSlot = slotSelect.value || state.options.user_preset_slots[0];
+      const preset = state.userPresets[selectedSlot];
+      document.getElementById("user-preset-label").value = preset?.label || prettySlotName(selectedSlot);
+
+      const pills = document.getElementById("user-preset-pills");
+      pills.innerHTML = "";
+      state.options.user_preset_slots.forEach(slot => {
+        const meta = state.userPresets[slot];
+        const pill = document.createElement("span");
+        pill.className = "pill";
+        pill.textContent = meta
+          ? `${prettySlotName(slot)}: ${meta.label}`
+          : `${prettySlotName(slot)}: empty`;
+        pills.appendChild(pill);
+      });
+    }
+
+    function loadFormFromState() {
+      const settings = state.settings;
+      document.getElementById("tts_backend").value = settings.tts_backend;
+      document.getElementById("effects_preset").value = settings.effects_preset;
+      refreshVoiceSelects(settings.tts_backend, settings.voice);
+      document.getElementById("inworld.model").value = settings.inworld.model;
+      document.getElementById("inworld.audio_encoding").value = settings.inworld.audio_encoding;
+      document.getElementById("inworld.timestamp_type").value = settings.inworld.timestamp_type;
+      document.getElementById("inworld.apply_text_normalization").value = settings.inworld.apply_text_normalization;
+      document.getElementById("graillon.key").value = settings.graillon.key;
+      document.getElementById("graillon.scale").value = settings.graillon.scale;
+
+      Object.entries(controls).forEach(([sectionKey, fields]) => {
+        fields.forEach(field => {
+          const id = `${sectionKey}.${field.key}`;
+          const input = document.getElementById(id);
+          if (!input) return;
+          const value = getNested(settings, field.path || id);
+          if (field.type === "checkbox") {
+            input.checked = Boolean(value);
+          } else {
+            input.value = value ?? 0;
+            const display = document.getElementById(`${id}.value`);
+            if (display) display.textContent = value === null ? "auto" : Number(value).toFixed(field.step < 1 ? 2 : 0);
+          }
+        });
+      });
+
+      const backendMeta = state.options.backends[settings.tts_backend];
+      document.getElementById("pill-backend").textContent = `Backend: ${backendMeta.label}`;
+      document.getElementById("pill-graillon").textContent = `Graillon: ${state.service.graillon}`;
+      document.getElementById("pill-preset").textContent = `Preset: ${settings.effects_preset}`;
+      document.getElementById("pill-output").textContent = `Output: ${settings.graillon.key} ${settings.graillon.scale}`;
+      document.getElementById("pill-inworld").textContent =
+        `Inworld: ${state.service.inworld_status} / ${state.service.inworld_voice_count || 0} voices`;
+      document.getElementById("inworld-panel").style.display =
+        settings.tts_backend === "inworld_fx" ? "grid" : "none";
+      document.getElementById("backend-note").textContent =
+        `${backendMeta.label} is active. Speech renders through the Graillon/effects controls below.`;
+      refreshUserPresetUI();
+    }
+
+    function collectSettings() {
+      const next = JSON.parse(JSON.stringify(state.settings));
+      next.tts_backend = document.getElementById("tts_backend").value;
+      next.effects_preset = document.getElementById("effects_preset").value;
+      next.voice = document.getElementById("voice").value;
+      next.inworld.model = document.getElementById("inworld.model").value;
+      next.inworld.audio_encoding = document.getElementById("inworld.audio_encoding").value;
+      next.inworld.timestamp_type = document.getElementById("inworld.timestamp_type").value;
+      next.inworld.apply_text_normalization = document.getElementById("inworld.apply_text_normalization").value;
+      next.graillon.key = document.getElementById("graillon.key").value;
+      next.graillon.scale = document.getElementById("graillon.scale").value;
+
+      Object.entries(controls).forEach(([sectionKey, fields]) => {
+        fields.forEach(field => {
+          const id = `${sectionKey}.${field.key}`;
+          const input = document.getElementById(id);
+          if (!input) return;
+          let value = field.type === "checkbox" ? input.checked : Number(input.value);
+          if (field.optional && Number(input.value) === 0) value = null;
+          setNested(next, field.path || id, value);
+        });
+      });
+      return next;
+    }
+
+    async function loadSettings() {
+      setStatus("Loading runtime settings…");
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      populateBackendSelect("tts_backend", data.options.backends);
+      populateSelect("effects_preset", data.options.presets);
+      refreshVoiceSelects(data.settings.tts_backend, data.settings.voice);
+      populateSelect("inworld.model", data.options.inworld_models);
+      populateSelect("inworld.audio_encoding", data.options.inworld_audio_encodings);
+      populateSelect("inworld.timestamp_type", data.options.inworld_timestamp_types);
+      populateSelect("inworld.apply_text_normalization", data.options.inworld_text_normalization_modes);
+      populateSelect("graillon.key", data.options.keys);
+      populateSelect("graillon.scale", data.options.scales);
+      populateSelect("user-preset-slot", data.options.user_preset_slots);
+      renderAllSections();
+      loadFormFromState();
+      setStatus(`Loaded ${state.settings.effects_preset}. Settings file: ${state.service.settings_path}`);
+    }
+
+    async function saveSettings() {
+      const payload = collectSettings();
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to save settings");
+      }
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      loadFormFromState();
+      setStatus(`Saved ${state.settings.effects_preset} to ${state.service.settings_path}`);
+    }
+
+    async function applyPreset() {
+      const preset = document.getElementById("effects_preset").value;
+      const res = await fetch(`/api/presets/${encodeURIComponent(preset)}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to apply preset");
+      }
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      loadFormFromState();
+      setStatus(`Applied preset ${preset}`);
+    }
+
+    async function saveUserPreset() {
+      const slot = document.getElementById("user-preset-slot").value;
+      const label = document.getElementById("user-preset-label").value.trim();
+      const payload = {
+        label,
+        settings: collectSettings()
+      };
+      const res = await fetch(`/api/user-presets/${encodeURIComponent(slot)}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to save user preset");
+      }
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      loadFormFromState();
+      setStatus(`Saved ${slot} as ${label || prettySlotName(slot)}`);
+    }
+
+    async function loadUserPreset() {
+      const slot = document.getElementById("user-preset-slot").value;
+      const res = await fetch(`/api/user-presets/${encodeURIComponent(slot)}/load`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to load user preset");
+      }
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      loadFormFromState();
+      setStatus(`Loaded ${slot}`);
+    }
+
+    async function preview() {
+      if (previewInFlight) {
+        setStatus("Preview already running. Wait for the current request to finish.", true);
+        return;
+      }
+      setPreviewButtonState(true);
+      await saveSettings();
+      const payload = {
+        input: document.getElementById("preview-text").value,
+        voice: document.getElementById("preview-voice").value,
+        response_format: document.getElementById("preview-format").value,
+        speed: Number(document.getElementById("preview-speed").value || 1)
+      };
+      const activeBackend = state.settings.tts_backend || "kokoro_glados";
+      setStatus(
+        activeBackend === "inworld_fx"
+          ? "Rendering Inworld through Hermes Voice effects..."
+          : "Rendering Kokoro through Hermes Voice effects..."
+      );
+      try {
+        const res = await fetch("/v1/audio/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "Preview failed");
+        }
+        const blob = await res.blob();
+        const audio = document.getElementById("player");
+        audio.src = URL.createObjectURL(blob);
+        audio.play().catch(() => {});
+        const backend = res.headers.get("x-tts-backend") || state.settings.tts_backend;
+        const voiceHeader = backend === "inworld_fx"
+          ? res.headers.get("x-inworld-voice")
+          : res.headers.get("x-glados-voice");
+        const synthSeconds = res.headers.get("x-glados-synth-seconds");
+        const effectsSeconds = res.headers.get("x-glados-effects-seconds");
+        document.getElementById("pill-output").textContent =
+          `Output: ${voiceHeader} / ${res.headers.get("x-glados-key")} ${res.headers.get("x-glados-scale")} / synth ${synthSeconds}s + fx ${effectsSeconds}s`;
+        setStatus("Preview ready.");
+      } finally {
+        setPreviewButtonState(false);
+      }
+    }
+
+    async function refreshInworldVoices() {
+      setStatus("Refreshing Inworld voices…");
+      const res = await fetch("/api/inworld/voices/refresh", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to refresh Inworld voices");
+      }
+      state.settings = data.settings;
+      state.options = data.options;
+      state.service = data.service;
+      state.userPresets = data.user_presets || {};
+      refreshVoiceSelects(state.settings.tts_backend, state.settings.voice);
+      loadFormFromState();
+      setStatus(`Inworld voices refreshed: ${state.service.inworld_status}`);
+    }
+
+    document.getElementById("apply-preset").addEventListener("click", async () => {
+      try { await applyPreset(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("load-user-preset").addEventListener("click", async () => {
+      try { await loadUserPreset(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("save-user-preset").addEventListener("click", async () => {
+      try { await saveUserPreset(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("save-config").addEventListener("click", async () => {
+      try { await saveSettings(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("reload-config").addEventListener("click", async () => {
+      try { await loadSettings(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("refresh-inworld-voices").addEventListener("click", async () => {
+      try { await refreshInworldVoices(); } catch (err) { setStatus(err.message, true); }
+    });
+    document.getElementById("tts_backend").addEventListener("change", () => {
+      const backend = document.getElementById("tts_backend").value;
+      const selectedVoice = refreshVoiceSelects(backend, document.getElementById("voice").value);
+      document.getElementById("preview-voice").value = selectedVoice;
+      const backendMeta = state.options.backends[backend];
+      document.getElementById("backend-note").textContent =
+        `${backendMeta.label} is active. Speech renders through the Graillon/effects controls below.`;
+      document.getElementById("pill-backend").textContent = `Backend: ${backendMeta.label}`;
+      document.getElementById("inworld-panel").style.display =
+        backend === "inworld_fx" ? "grid" : "none";
+    });
+    document.getElementById("user-preset-slot").addEventListener("change", refreshUserPresetUI);
+    document.getElementById("preview-button").addEventListener("click", async () => {
+      try { await preview(); } catch (err) { setStatus(err.message, true); }
+    });
+
+    loadSettings().catch(err => setStatus(err.message, true));
+  </script>
+</body>
+</html>
