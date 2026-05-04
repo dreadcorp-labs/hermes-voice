@@ -1,7 +1,7 @@
 # Hermes Voice
 
 <p align="center">
-  <img src="‎assets/dreadcorp-owl-logo.png‎" alt="Dreadcorp Labs transparent banner" width="100%">
+  <img src="assets/dreadcorp-owl-logo.png" alt="Dreadcorp Labs" width="720">
 </p>
 
 <p align="center">
@@ -12,6 +12,7 @@
   <a href="#quick-start">Quick start</a> |
   <a href="#what-stands-out">What stands out</a> |
   <a href="#architecture">Architecture</a> |
+  <a href="#demo-video">Demo video</a> |
   <a href="#demo-flow">Demo flow</a>
 </p>
 
@@ -33,6 +34,16 @@ feel native to speech.
 
 <p align="center">
   <img src="assets/hermes-voice-screenshot.png" alt="Hermes Voice mobile web client" width="360">
+</p>
+
+## Demo Video
+
+<p align="center">
+  <a href="https://youtu.be/TJwmwtuBRGE?si=z0m9-Ec_1sI_mLU0">
+    <img src="https://img.youtube.com/vi/TJwmwtuBRGE/hqdefault.jpg" alt="Watch the Hermes Voice demo video" width="640">
+  </a>
+  <br>
+  <a href="https://youtu.be/TJwmwtuBRGE?si=z0m9-Ec_1sI_mLU0"><strong>Watch the Hermes Voice demo</strong></a>
 </p>
 
 ## Quick Start
