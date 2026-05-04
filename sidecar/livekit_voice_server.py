@@ -380,9 +380,6 @@ class Settings:
     model_choices: list[dict[str, str]] = field(default_factory=lambda: list(DEFAULT_MODEL_CHOICES))
     hermes_reasoning_effort: str = "none"
     hermes_timeout_seconds: float = 90.0
-    demo_script_enabled: bool = False
-    demo_script_path: Path = Path("/config/demo-script.txt")
-    demo_script_state_path: Path = Path("/config/demo-script.state")
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
     speech_rms_threshold: int = 420
     silence_seconds: float = 1.05
@@ -463,9 +460,6 @@ class Settings:
             ),
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
             hermes_timeout_seconds=float(_env("HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS", "90")),
-            demo_script_enabled=_env("HERMES_VOICE_DEMO_SCRIPT_ENABLED", "false").lower() in {"1", "true", "yes", "on"},
-            demo_script_path=Path(_env("HERMES_VOICE_DEMO_SCRIPT_PATH", "/config/demo-script.txt")),
-            demo_script_state_path=Path(_env("HERMES_VOICE_DEMO_SCRIPT_STATE_PATH", "/config/demo-script.state")),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
             silence_seconds=float(_env("HERMES_LIVEKIT_SILENCE_SECONDS", "1.05")),
@@ -2373,16 +2367,6 @@ class HermesLiveKitVoice:
         voice_affect: dict[str, Any] | None = None,
         session_id: str | None = None,
     ) -> tuple[str, dict[str, float]]:
-        demo_reply = self._next_demo_script_reply(transcript)
-        if demo_reply is not None:
-            await self._publish_state("thinking", stage="demo_script", transcript=transcript)
-            timings = {"hermes": 0.0, "hermes_first_sentence": 0.0, "demo_script": 1.0}
-            speak_timings = await self._speak_reply(demo_reply, turn_start)
-            timings.update(speak_timings)
-            if speak_timings.get("interrupted"):
-                return "", timings
-            return demo_reply, timings
-
         if self.settings.hermes_streaming:
             try:
                 return await self._stream_hermes_and_speak(
@@ -2429,56 +2413,6 @@ class HermesLiveKitVoice:
         if speak_timings.get("interrupted"):
             return "", timings
         return reply, timings
-
-    def _next_demo_script_reply(self, transcript: str) -> str | None:
-        if not self.settings.demo_script_enabled:
-            return None
-        path = self.settings.demo_script_path
-        if not path.exists():
-            self.status.last_error = f"Demo script file does not exist: {path}"
-            return "Demo script mode is enabled, but I cannot find the script file."
-
-        normalized = self._normalize_transcript(transcript)
-        if normalized in {"reset demo", "restart demo", "reset script", "restart script"}:
-            self._write_demo_script_index(0)
-            return "Demo script reset."
-
-        entries = self._load_demo_script_entries(path)
-        if not entries:
-            self.status.last_error = f"Demo script file has no usable lines: {path}"
-            return "Demo script mode is enabled, but the script is empty."
-
-        index = self._read_demo_script_index()
-        reply = entries[index % len(entries)]
-        self._write_demo_script_index(index + 1)
-        LOG.info("demo script reply index=%d path=%s transcript=%s", index, path, transcript)
-        return reply
-
-    @staticmethod
-    def _load_demo_script_entries(path: Path) -> list[str]:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        if "\n---" in text or "---\n" in text:
-            raw_entries = re.split(r"(?m)^\s*---+\s*$", text)
-        else:
-            raw_entries = text.splitlines()
-        entries: list[str] = []
-        for raw in raw_entries:
-            lines = [line.strip() for line in raw.strip().splitlines() if line.strip() and not line.lstrip().startswith("#")]
-            entry = " ".join(lines).strip()
-            if entry:
-                entries.append(entry)
-        return entries
-
-    def _read_demo_script_index(self) -> int:
-        try:
-            return max(0, int(self.settings.demo_script_state_path.read_text().strip() or "0"))
-        except Exception:
-            return 0
-
-    def _write_demo_script_index(self, index: int) -> None:
-        with contextlib.suppress(Exception):
-            self.settings.demo_script_state_path.parent.mkdir(parents=True, exist_ok=True)
-            self.settings.demo_script_state_path.write_text(f"{max(0, index)}\n")
 
     def _spoken_hermes_error(self, exc: Exception) -> str:
         message = str(exc)

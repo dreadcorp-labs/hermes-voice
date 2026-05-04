@@ -313,9 +313,6 @@ HERMES_API_REASONING_EFFORT=none
 HERMES_LIVEKIT_MODEL_CHOICES=$HERMES_LIVEKIT_MODEL_CHOICES
 HERMES_LIVEKIT_HERMES_STREAMING=true
 HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS=90
-HERMES_VOICE_DEMO_SCRIPT_ENABLED=false
-HERMES_VOICE_DEMO_SCRIPT_PATH=/config/demo-script.txt
-HERMES_VOICE_DEMO_SCRIPT_STATE_PATH=/config/demo-script.state
 HERMES_DISCOVERY_CIDRS=$HERMES_DISCOVERY_CIDRS
 HERMES_DISCOVERY_PORTS=$HERMES_DISCOVERY_PORTS
 HERMES_DISCOVERY_MAX_HOSTS=512
@@ -341,16 +338,6 @@ HERMES_EMOTION2VEC_TIMEOUT_SECONDS=8.0
 EOF
 
 chmod 600 "$INSTALL_DIR/.env" "$INSTALL_DIR/config/livekit.yaml" "$INSTALL_DIR/config/hermes-voice.env"
-
-if [ ! -f "$INSTALL_DIR/config/demo-script.txt" ]; then
-  cat > "$INSTALL_DIR/config/demo-script.txt" <<'EOF'
-# Demo script mode is off by default.
-# Enable it by setting HERMES_VOICE_DEMO_SCRIPT_ENABLED=true in hermes-voice.env.
-# Each non-empty line is one exact reply. Use a line with --- between multi-line replies.
-Hermes Voice demo script is ready.
-EOF
-  chmod 600 "$INSTALL_DIR/config/demo-script.txt"
-fi
 
 if command -v chown >/dev/null 2>&1; then
   chown -R 1000:1000 "$INSTALL_DIR/config" 2>/dev/null || true
