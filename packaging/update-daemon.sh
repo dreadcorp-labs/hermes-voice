@@ -34,7 +34,7 @@ run_update() {
   set +e
   {
     echo "Fetching origin/$UPDATE_BRANCH"
-    git -C "$SOURCE_DIR" fetch --prune origin
+    git -C "$SOURCE_DIR" fetch --prune origin "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH"
     git -C "$SOURCE_DIR" checkout -B "$UPDATE_BRANCH" "origin/$UPDATE_BRANCH"
     git -C "$SOURCE_DIR" reset --hard "origin/$UPDATE_BRANCH"
     echo "Rebuilding Hermes Voice from $SOURCE_DIR"
