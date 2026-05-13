@@ -447,7 +447,7 @@ class Settings:
     hermes_provider: str = ""
     model_choices: list[dict[str, str]] = field(default_factory=lambda: list(DEFAULT_MODEL_CHOICES))
     hermes_reasoning_effort: str = "none"
-    hermes_timeout_seconds: float = 90.0
+    hermes_timeout_seconds: float = 180.0
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
     speech_rms_threshold: int = 420
     silence_seconds: float = 1.05
@@ -535,7 +535,7 @@ class Settings:
                 [*DEFAULT_MODEL_CHOICES, *_parse_model_choices(_env("HERMES_LIVEKIT_MODEL_CHOICES", ""))]
             ),
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
-            hermes_timeout_seconds=float(_env("HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS", "90")),
+            hermes_timeout_seconds=float(_env("HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS", "180")),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
             silence_seconds=float(_env("HERMES_LIVEKIT_SILENCE_SECONDS", "1.05")),
