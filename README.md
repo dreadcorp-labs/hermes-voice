@@ -131,9 +131,8 @@ editing files.
 The packaged web setup flow collects the Hermes API URL/key, normalizes
 `host:port` into the OpenAI-compatible chat path, and writes local configuration
 without committing secrets to the repo.
-When it runs on the same machine as Hermes, the installer also seeds
-`~/.hermes/config.yaml` with the Kimi/Moonshot models exposed by the configured
-`KIMI_API_KEY` without changing Hermes' default model route.
+The packaged model selector starts with the Hermes gateway default and then
+uses whatever models the configured Hermes API advertises.
 
 **Browser and desktop surfaces.**  
 The browser UI works well on phones and desktops. The Electron shell adds a
@@ -209,15 +208,14 @@ TTS_PORT=8890
 REDIS_PORT=16379
 HERMES_API_URL="http://127.0.0.1:8642/v1/chat/completions"
 HERMES_API_KEY="..."
-HERMES_API_MODEL="kimi-k2.6"
-HERMES_API_PROVIDER="kimi-coding"
+HERMES_API_MODEL="hermes-agent"
+HERMES_API_PROVIDER="hermes"
 ```
 
 `HERMES_API_MODEL` is a per-voice-session override sent to the Hermes agent API.
 It does not bypass Hermes tools, memory, or prompt context. The WebUI settings
-model dropdown edits this value. For Moonshot/Kimi installs, the packaged
-default is `kimi-k2.6` with provider `kimi-coding`; additional Kimi models are
-added when the current Hermes/Moonshot config exposes them.
+model dropdown edits this value and is populated from the configured Hermes
+gateway's `/v1/models` endpoint.
 
 Set `HERMES_VOICE_BIND_HOST=0.0.0.0` only when you intentionally want to expose
 the packaged services beyond localhost.

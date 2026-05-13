@@ -61,7 +61,6 @@ HERMES_API_KEY="${HERMES_API_KEY:-${API_SERVER_KEY:-$(read_env_value HERMES_API_
 HERMES_API_MODEL="${HERMES_API_MODEL:-$(read_env_value HERMES_API_MODEL)}"
 HERMES_API_MODEL="${HERMES_API_MODEL:-hermes-agent}"
 case "$HERMES_API_MODEL" in
-  kimi-*|moonshot*) default_hermes_api_provider="kimi-coding" ;;
   *) default_hermes_api_provider="hermes" ;;
 esac
 HERMES_API_PROVIDER="${HERMES_API_PROVIDER:-$(read_env_value HERMES_API_PROVIDER)}"

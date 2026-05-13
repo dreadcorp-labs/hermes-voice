@@ -112,9 +112,6 @@ SETUP_ENV_KEYS = SETTINGS_ENV_KEYS | {
 }
 DEFAULT_MODEL_CHOICES = (
     {"id": "hermes-agent", "name": "Hermes default", "provider": "hermes"},
-    {"id": "kimi-k2.6", "name": "Kimi K2.6", "provider": "kimi-coding"},
-    {"id": "kimi-k2.5", "name": "Kimi K2.5", "provider": "kimi-coding"},
-    {"id": "gpt-5.4-mini", "name": "Hermes fast", "provider": "hermes"},
 )
 TTS_CHOICES = (
     {"id": NATIVE_TTS_BACKEND, "name": "Hermes Voice Native"},
@@ -272,13 +269,13 @@ def _parse_discovery_ports(value: str) -> list[int]:
 def _normalize_model_choice(item: Any) -> dict[str, str] | None:
     if isinstance(item, str):
         model_id = item.strip()
-        if not model_id:
+        if not _model_choice_allowed(model_id):
             return None
         return {"id": model_id, "name": model_id, "provider": _default_provider_for_model(model_id)}
     if not isinstance(item, dict):
         return None
     model_id = str(item.get("id") or item.get("model") or "").strip()
-    if not model_id:
+    if not _model_choice_allowed(model_id):
         return None
     name = str(item.get("name") or item.get("label") or model_id).strip()
     provider = str(item.get("provider") or _default_provider_for_model(model_id)).strip()
@@ -286,10 +283,12 @@ def _normalize_model_choice(item: Any) -> dict[str, str] | None:
 
 
 def _default_provider_for_model(model_id: str) -> str:
-    model = model_id.strip().lower()
-    if model.startswith("kimi-") or model.startswith("moonshot"):
-        return "kimi-coding"
     return "hermes"
+
+
+def _model_choice_allowed(model_id: str) -> bool:
+    model = model_id.strip().lower()
+    return bool(model) and not (model.startswith("kimi-") or model.startswith("moonshot"))
 
 
 def _parse_model_choices(value: str) -> list[dict[str, str]]:
@@ -308,7 +307,7 @@ def _parse_model_choices(value: str) -> list[dict[str, str]]:
     for part in _split_csv(raw):
         fields = [field.strip() for field in part.split("|")]
         model_id = fields[0] if fields else ""
-        if not model_id:
+        if not _model_choice_allowed(model_id):
             continue
         name = fields[1] if len(fields) > 1 and fields[1] else model_id
         provider = fields[2] if len(fields) > 2 and fields[2] else _default_provider_for_model(model_id)
@@ -321,7 +320,7 @@ def _dedupe_model_choices(choices: list[dict[str, str]]) -> list[dict[str, str]]
     seen: set[str] = set()
     for raw in choices:
         choice = _normalize_model_choice(raw)
-        if not choice or choice["id"] in seen:
+        if not choice or not _model_choice_allowed(choice["id"]) or choice["id"] in seen:
             continue
         deduped.append(choice)
         seen.add(choice["id"])
@@ -465,10 +464,10 @@ class Settings:
     stt_provider: str = "auto"
     stt_model: str = ""
     hermes_streaming: bool = True
-    kimi_affect_enabled: bool = True
+    kimi_affect_enabled: bool = False
     kimi_api_url: str = "https://api.moonshot.ai/v1/chat/completions"
     kimi_api_key: str = ""
-    kimi_model: str = "kimi-k2.6"
+    kimi_model: str = ""
     kimi_affect_timeout_seconds: float = 2.5
     kimi_affect_wait_seconds: float = 0.8
     kimi_audio_enabled: bool = False
@@ -553,10 +552,10 @@ class Settings:
             stt_provider=_env("HERMES_LIVEKIT_STT_PROVIDER", "auto"),
             stt_model=_env("HERMES_LIVEKIT_STT_MODEL", ""),
             hermes_streaming=_env("HERMES_LIVEKIT_HERMES_STREAMING", "true").lower() not in {"0", "false", "no"},
-            kimi_affect_enabled=_env("HERMES_KIMI_AFFECT_ENABLED", "true").lower() not in {"0", "false", "no"},
+            kimi_affect_enabled=_env("HERMES_KIMI_AFFECT_ENABLED", "false").lower() not in {"0", "false", "no"},
             kimi_api_url=_env("HERMES_KIMI_API_URL", "https://api.moonshot.ai/v1/chat/completions"),
             kimi_api_key=_env("HERMES_KIMI_API_KEY", _env("MOONSHOT_API_KEY", _env("KIMI_API_KEY"))),
-            kimi_model=_env("HERMES_KIMI_MODEL", "kimi-k2.6"),
+            kimi_model=_env("HERMES_KIMI_MODEL", ""),
             kimi_affect_timeout_seconds=float(_env("HERMES_KIMI_AFFECT_TIMEOUT_SECONDS", "2.5")),
             kimi_affect_wait_seconds=float(_env("HERMES_KIMI_AFFECT_WAIT_SECONDS", "0.8")),
             kimi_audio_enabled=_env("HERMES_KIMI_AUDIO_ENABLED", "false").lower() not in {"0", "false", "no"},
@@ -868,7 +867,7 @@ class HermesLiveKitVoice:
         for item in payload.get("data", []) if isinstance(payload, dict) else []:
             if isinstance(item, dict) and item.get("id"):
                 model_id = str(item["id"]).strip()
-                if model_id:
+                if _model_choice_allowed(model_id):
                     models.append(
                         {
                             "id": model_id,
@@ -877,7 +876,7 @@ class HermesLiveKitVoice:
                         }
                     )
         if models:
-            self.settings.model_choices = _dedupe_model_choices([*self.settings.model_choices, *models])
+            self.settings.model_choices = _dedupe_model_choices([*DEFAULT_MODEL_CHOICES, *models])
 
     async def check_update(self) -> dict[str, Any]:
         status = self._initial_update_status()
@@ -1009,6 +1008,8 @@ class HermesLiveKitVoice:
 
         model = str(body.get("model") or "").strip()
         if model:
+            if not _model_choice_allowed(model):
+                raise ValueError("Unsupported model")
             allowed_models = {choice["id"] for choice in self.settings.model_choices}
             if model not in allowed_models:
                 self.settings.model_choices = _dedupe_model_choices(

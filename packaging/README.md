@@ -58,8 +58,8 @@ HERMES_VOICE_INSTALL_DIR="$HOME/.hermes-voice" \
 HERMES_VOICE_PUBLIC_HOST="localhost" \
 HERMES_API_URL="http://host.docker.internal:8642/v1/chat/completions" \
 HERMES_API_KEY="..." \
-HERMES_API_MODEL="kimi-k2.6" \
-HERMES_API_PROVIDER="kimi-coding" \
+HERMES_API_MODEL="hermes-agent" \
+HERMES_API_PROVIDER="hermes" \
 ./packaging/install.sh
 ```
 
@@ -71,9 +71,8 @@ URL or just `host:port`; `host:port` is expanded to
 `http://host:port/v1/chat/completions`.
 
 The WebUI model selector controls the model override sent to Hermes for every
-voice turn. The default package includes Moonshot/Kimi choices plus Hermes
-defaults, and it merges any models advertised by the connected Hermes
-`/v1/models` endpoint.
+voice turn. The default package starts with `hermes-agent` and then merges the
+models advertised by the connected Hermes `/v1/models` endpoint.
 
 The installer records detected LAN CIDRs in `HERMES_DISCOVERY_CIDRS` so the
 setup page can search for Hermes on common API ports. Override it when needed:
