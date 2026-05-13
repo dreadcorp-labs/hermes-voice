@@ -1293,6 +1293,10 @@
         <span>Voice behavior</span>
       </div>
       <div class="submenu-body">
+        <div class="field">
+          <label for="maxReplyWordsInput">Spoken reply limit</label>
+          <input id="maxReplyWordsInput" type="number" min="0" max="500" step="10">
+        </div>
         <label for="voiceInstructionsInput">Injected Hermes Voice instructions</label>
         <textarea id="voiceInstructionsInput" class="voice-editor" spellcheck="true"></textarea>
         <div class="voice-actions">
@@ -1355,6 +1359,7 @@
     const voiceBehaviorOpenBtn = document.getElementById('voiceBehaviorOpen');
     const voiceBehaviorBackBtn = document.getElementById('voiceBehaviorBack');
     const voiceBehaviorBackBottomBtn = document.getElementById('voiceBehaviorBackBottom');
+    const maxReplyWordsInputEl = document.getElementById('maxReplyWordsInput');
     const voiceInstructionsInputEl = document.getElementById('voiceInstructionsInput');
     const saveVoiceInstructionsBtn = document.getElementById('saveVoiceInstructions');
     const resetVoiceInstructionsBtn = document.getElementById('resetVoiceInstructions');
@@ -1821,6 +1826,7 @@
       ttsSelectEl.value = settings.ttsBackend || 'hermes_voice_native';
       sttSelectEl.value = settings.sttProvider || 'auto';
       sttModelInputEl.value = settings.sttModel || '';
+      maxReplyWordsInputEl.value = Number.isFinite(Number(settings.maxReplyWords)) ? String(settings.maxReplyWords) : '90';
       voiceInstructionsInputEl.value = settings.voiceInstructions || settings.defaultVoiceInstructions || '';
       emotionToggleEl.checked = Boolean(settings.emotionRecognition);
       renderBrandModel(settings);
@@ -3951,6 +3957,7 @@
     checkUpdateBtn.addEventListener('click', checkForUpdate);
     runUpdateBtn.addEventListener('click', runUpdate);
     saveVoiceInstructionsBtn.addEventListener('click', () => saveSettings({
+      maxReplyWords: Number(maxReplyWordsInputEl.value || 0),
       voiceInstructions: voiceInstructionsInputEl.value,
     }));
     voiceBehaviorOpenBtn.addEventListener('click', () => {
@@ -3966,7 +3973,11 @@
     resetVoiceInstructionsBtn.addEventListener('click', () => {
       const fallback = runtimeSettings?.defaultVoiceInstructions || '';
       voiceInstructionsInputEl.value = fallback;
+      maxReplyWordsInputEl.value = '90';
     });
+    maxReplyWordsInputEl.addEventListener('change', () => queueSettingsSave({
+      maxReplyWords: Number(maxReplyWordsInputEl.value || 0),
+    }));
     emotionToggleEl.addEventListener('change', () => queueSettingsSave({ emotionRecognition: emotionToggleEl.checked }));
     typedTextEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey) {

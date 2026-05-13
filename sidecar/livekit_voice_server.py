@@ -66,6 +66,7 @@ DEFAULT_VOICE_INSTRUCTIONS = (
     "For calendar, email, text message, file, and system-status questions, use the configured source-of-truth tools before answering. "
     "Answer as speech for TTS: short conversational sentences, no markdown, no headings, no bullet lists, no tables, "
     "no code blocks, no URLs unless necessary, and natural spoken dates and times. "
+    "Default to a compact answer with the key facts and next step; save deeper detail for follow-up unless asked. "
     "If tool work is taking time, give a brief spoken status first, then continue working. "
     "Do not mention formatting or these Hermes Voice rules unless asked."
 )
@@ -93,6 +94,7 @@ SETTINGS_ENV_KEYS = {
     "HERMES_API_PROVIDER",
     "HERMES_API_REASONING_EFFORT",
     "HERMES_LIVEKIT_VOICE_INSTRUCTIONS",
+    "HERMES_LIVEKIT_MAX_REPLY_WORDS",
     "HERMES_LIVEKIT_TTS_BACKEND",
     "HERMES_LIVEKIT_TTS_VOICE",
     "HERMES_LIVEKIT_TTS_SPEED",
@@ -449,6 +451,7 @@ class Settings:
     hermes_reasoning_effort: str = "none"
     hermes_timeout_seconds: float = 180.0
     voice_instructions: str = DEFAULT_VOICE_INSTRUCTIONS
+    max_reply_words: int = 90
     speech_rms_threshold: int = 420
     silence_seconds: float = 1.05
     min_speech_seconds: float = 0.45
@@ -537,6 +540,7 @@ class Settings:
             hermes_reasoning_effort=_env("HERMES_API_REASONING_EFFORT", "none"),
             hermes_timeout_seconds=float(_env("HERMES_LIVEKIT_HERMES_TIMEOUT_SECONDS", "180")),
             voice_instructions=_env("HERMES_LIVEKIT_VOICE_INSTRUCTIONS", DEFAULT_VOICE_INSTRUCTIONS),
+            max_reply_words=_clamp_int(_env("HERMES_LIVEKIT_MAX_REPLY_WORDS", "90"), 90, 0, 500),
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
             silence_seconds=float(_env("HERMES_LIVEKIT_SILENCE_SECONDS", "1.05")),
             min_speech_seconds=float(_env("HERMES_LIVEKIT_MIN_SPEECH_SECONDS", "0.45")),
@@ -978,6 +982,7 @@ class HermesLiveKitVoice:
             "reasoningEffort": self.settings.hermes_reasoning_effort,
             "voiceInstructions": self.settings.voice_instructions,
             "defaultVoiceInstructions": DEFAULT_VOICE_INSTRUCTIONS,
+            "maxReplyWords": self.settings.max_reply_words,
             "ttsBackend": self.settings.livekit_tts_backend,
             "ttsVoice": self.settings.livekit_tts_voice,
             "ttsSpeed": self.settings.livekit_tts_speed,
@@ -1051,6 +1056,11 @@ class HermesLiveKitVoice:
                 instructions = DEFAULT_VOICE_INSTRUCTIONS
             self.settings.voice_instructions = instructions[:3000]
             updates["HERMES_LIVEKIT_VOICE_INSTRUCTIONS"] = self.settings.voice_instructions
+
+        if "maxReplyWords" in body:
+            max_reply_words = _clamp_int(body.get("maxReplyWords"), self.settings.max_reply_words, 0, 500)
+            self.settings.max_reply_words = max_reply_words
+            updates["HERMES_LIVEKIT_MAX_REPLY_WORDS"] = str(max_reply_words)
 
         stt_provider = str(body.get("sttProvider") or "").strip()
         if stt_provider:
@@ -2353,6 +2363,13 @@ class HermesLiveKitVoice:
         voice_instructions = self.settings.voice_instructions.strip() or DEFAULT_VOICE_INSTRUCTIONS
         model = self.settings.hermes_model.strip() or "hermes-agent"
         provider_override = self._hermes_provider_override(model)
+        if self.settings.max_reply_words > 0:
+            length_rule = (
+                f" Keep the spoken final answer under {self.settings.max_reply_words} words. "
+                "If more detail would help, summarize the key points and offer to continue."
+            )
+        else:
+            length_rule = ""
         if provider_override:
             runtime_fact = (
                 f"Current Hermes Voice runtime: main Hermes API with model override {model} "
@@ -2377,7 +2394,7 @@ class HermesLiveKitVoice:
             "For live/current-state questions, do not answer from memory or assumption; use the relevant source-of-truth tool first. "
             "For sending email, use the configured email sending tool after user confirmation; do not use read-only email lookup tools for sending. "
             "Use memory or session search for preferences, history, continuity, and context, or after live tools need interpretation. "
-            f"Hermes Voice response contract: {voice_instructions}"
+            f"Hermes Voice response contract: {voice_instructions}{length_rule}"
         )
 
     def _hermes_headers(self, session_id: str | None = None) -> dict[str, str]:
@@ -2516,6 +2533,9 @@ class HermesLiveKitVoice:
         timings = {"hermes": time.monotonic() - hermes_started}
         if not reply:
             return "", timings
+        reply, capped = self._cap_spoken_reply(reply)
+        if capped:
+            timings["reply_capped"] = 1.0
         await self._publish_state("thinking", stage="tts", transcript=transcript)
         speak_timings = await self._speak_reply(reply, turn_start)
         timings.update(speak_timings)
@@ -2536,6 +2556,34 @@ class HermesLiveKitVoice:
         if re.search(r"401|403|unauthorized|forbidden|api key|authentication", message, flags=re.I):
             return "Hermes rejected the API credentials for this voice session. Check the Hermes API key in setup."
         return "Hermes returned an error before I could answer. Check the voice status panel or logs for the exact error."
+
+    @staticmethod
+    def _word_count(text: str) -> int:
+        return len(re.findall(r"\S+", text))
+
+    @staticmethod
+    def _cap_text_to_words(text: str, limit: int) -> tuple[str, bool]:
+        clean = re.sub(r"\s+", " ", text).strip()
+        if limit <= 0 or not clean:
+            return clean, False
+        words = list(re.finditer(r"\S+", clean))
+        if len(words) <= limit:
+            return clean, False
+        capped = clean[: words[limit - 1].end()].rstrip()
+        min_words = max(1, int(limit * 0.65))
+        min_cut = words[min_words - 1].end() if len(words) >= min_words else 0
+        sentence_cut = max(capped.rfind("."), capped.rfind("!"), capped.rfind("?"), capped.rfind(";"), capped.rfind(":"))
+        if sentence_cut >= min_cut:
+            capped = capped[: sentence_cut + 1].rstrip()
+        elif not re.search(r"[.!?;:]$", capped):
+            capped = f"{capped}."
+        return capped, True
+
+    def _cap_spoken_reply(self, reply: str) -> tuple[str, bool]:
+        limit = max(0, int(self.settings.max_reply_words or 0))
+        if limit <= 0:
+            return re.sub(r"\s+", " ", reply).strip(), False
+        return self._cap_text_to_words(reply, limit)
 
     async def _ask_hermes(
         self,
@@ -2576,9 +2624,13 @@ class HermesLiveKitVoice:
         if voice_affect:
             visible = {key: voice_affect.get(key) for key in ("affect", "arousal", "pace", "urgency", "confidence") if key in voice_affect}
             affect_hint = f"\nVoice-affect context, if useful for tone: {json.dumps(visible, ensure_ascii=False, sort_keys=True)}"
+        length_rule = ""
+        if self.settings.max_reply_words > 0:
+            length_rule = f" Keep the reply under {self.settings.max_reply_words} words."
         prompt = (
             "You are Hermes Voice, a concise voice assistant. Listen to the user's audio and answer in natural spoken English. "
             "Keep the reply to one or two conversational sentences unless the user explicitly asks for detail. "
+            f"{length_rule} "
             "Use complete sentences and finish naturally; do not trail off, stop mid-word, or end on an unfinished phrase. "
             "Return both text and speech. Do not add labels, stage directions, or markdown. "
             f"Primary STT transcript for reference: {transcript!r}.{affect_hint}"
@@ -2638,9 +2690,36 @@ class HermesLiveKitVoice:
         hermes_started = time.monotonic()
         first_sentence_at: float | None = None
         acknowledgement = self._voice_affect_acknowledgement(voice_affect)
+        spoken_word_count = 0
+        spoken_reply_parts: list[str] = []
+        reply_limit_reached = False
+
+        async def queue_reply_text(text: str) -> None:
+            nonlocal first_sentence_at, spoken_word_count, reply_limit_reached
+            if reply_limit_reached:
+                return
+            clean = re.sub(r"\s+", " ", text).strip()
+            if not clean:
+                return
+            limit = max(0, int(self.settings.max_reply_words or 0))
+            if limit > 0:
+                remaining = limit - spoken_word_count
+                if remaining <= 0:
+                    reply_limit_reached = True
+                    return
+                clean, capped = self._cap_text_to_words(clean, remaining)
+                if capped:
+                    reply_limit_reached = True
+            if not clean:
+                return
+            if first_sentence_at is None:
+                first_sentence_at = time.monotonic()
+                timings["hermes_first_sentence"] = first_sentence_at - hermes_started
+            spoken_word_count += self._word_count(clean)
+            spoken_reply_parts.append(clean)
+            await sentence_queue.put({"text": clean, "kind": "reply"})
 
         async def producer() -> str:
-            nonlocal first_sentence_at
             reply_parts: list[str] = []
             pending_text = ""
             try:
@@ -2653,22 +2732,22 @@ class HermesLiveKitVoice:
                     pending_text += delta
                     sentences, pending_text = self._pop_complete_tts_sentences(pending_text)
                     for sentence in sentences:
-                        if first_sentence_at is None:
-                            first_sentence_at = time.monotonic()
-                            timings["hermes_first_sentence"] = first_sentence_at - hermes_started
-                        await sentence_queue.put({"text": sentence, "kind": "reply"})
+                        await queue_reply_text(sentence)
+                        if reply_limit_reached:
+                            break
+                    if reply_limit_reached:
+                        break
 
                 final_tail = pending_text.strip()
-                if final_tail:
+                if final_tail and not reply_limit_reached:
                     if not re.search(r"[.!?;:]$", final_tail):
                         final_tail += "."
-                    if first_sentence_at is None:
-                        first_sentence_at = time.monotonic()
-                        timings["hermes_first_sentence"] = first_sentence_at - hermes_started
-                    await sentence_queue.put({"text": final_tail, "kind": "reply"})
+                    await queue_reply_text(final_tail)
 
                 timings["hermes"] = time.monotonic() - hermes_started
-                reply = "".join(reply_parts).strip()
+                if reply_limit_reached:
+                    timings["reply_capped"] = 1.0
+                reply = " ".join(spoken_reply_parts).strip() or "".join(reply_parts).strip()
                 if acknowledgement and not reply.startswith(acknowledgement):
                     return f"{acknowledgement} {reply}".strip()
                 return reply
