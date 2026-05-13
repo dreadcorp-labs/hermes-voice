@@ -1331,6 +1331,9 @@ class HermesLiveKitVoice:
                     await asyncio.wait_for(self._turn_lock.acquire(), timeout=4.0)
                 except asyncio.TimeoutError:
                     LOG.info("dropping barge-in utterance from %s; interrupted turn did not release in time", identity)
+                    if not self._speaking.is_set():
+                        self._interrupt_requested.clear()
+                        await self._publish_state("listening")
                     return
                 try:
                     await self._process_utterance_locked(pcm, identity)
@@ -1488,6 +1491,7 @@ class HermesLiveKitVoice:
             await self._publish_state("error", error=str(exc))
             LOG.warning("turn processing failed: %s", exc, exc_info=True)
         finally:
+            self._interrupt_requested.clear()
             try:
                 Path(wav_path).unlink()
             except OSError:
@@ -2738,7 +2742,7 @@ class HermesLiveKitVoice:
             if not producer_task.done():
                 producer_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await producer_task
+                    await asyncio.wait_for(producer_task, timeout=2.0)
         timings.update(speak_timings)
         return reply, timings
 
@@ -2858,7 +2862,7 @@ class HermesLiveKitVoice:
             if next_task is not None and not next_task.done():
                 next_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await next_task
+                    await asyncio.wait_for(next_task, timeout=2.0)
             self._speaking.clear()
             for path in list(generated_paths):
                 try:
