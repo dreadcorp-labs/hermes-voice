@@ -95,6 +95,7 @@ SETTINGS_ENV_KEYS = {
     "HERMES_API_REASONING_EFFORT",
     "HERMES_LIVEKIT_VOICE_INSTRUCTIONS",
     "HERMES_LIVEKIT_MAX_REPLY_WORDS",
+    "HERMES_LIVEKIT_MAX_SPEECH_SECONDS",
     "HERMES_LIVEKIT_TTS_BACKEND",
     "HERMES_LIVEKIT_TTS_VOICE",
     "HERMES_LIVEKIT_TTS_SPEED",
@@ -455,7 +456,7 @@ class Settings:
     speech_rms_threshold: int = 420
     silence_seconds: float = 1.05
     min_speech_seconds: float = 0.45
-    max_speech_seconds: float = 25.0
+    max_speech_seconds: float = 60.0
     livekit_tts_backend: str = NATIVE_TTS_BACKEND
     livekit_tts_url: str = "http://127.0.0.1:8890/v1/audio/speech"
     livekit_tts_model: str = "tts-1"
@@ -544,7 +545,7 @@ class Settings:
             speech_rms_threshold=int(_env("HERMES_LIVEKIT_RMS_THRESHOLD", "420")),
             silence_seconds=float(_env("HERMES_LIVEKIT_SILENCE_SECONDS", "1.05")),
             min_speech_seconds=float(_env("HERMES_LIVEKIT_MIN_SPEECH_SECONDS", "0.45")),
-            max_speech_seconds=float(_env("HERMES_LIVEKIT_MAX_SPEECH_SECONDS", "25.0")),
+            max_speech_seconds=float(_env("HERMES_LIVEKIT_MAX_SPEECH_SECONDS", "60.0")),
             livekit_tts_backend=_normalize_tts_backend(_env("HERMES_LIVEKIT_TTS_BACKEND", NATIVE_TTS_BACKEND)),
             livekit_tts_url=_env("HERMES_LIVEKIT_TTS_URL", "http://127.0.0.1:8890/v1/audio/speech"),
             livekit_tts_model=_env("HERMES_LIVEKIT_TTS_MODEL", "tts-1"),
@@ -983,6 +984,7 @@ class HermesLiveKitVoice:
             "voiceInstructions": self.settings.voice_instructions,
             "defaultVoiceInstructions": DEFAULT_VOICE_INSTRUCTIONS,
             "maxReplyWords": self.settings.max_reply_words,
+            "maxSpeechSeconds": self.settings.max_speech_seconds,
             "ttsBackend": self.settings.livekit_tts_backend,
             "ttsVoice": self.settings.livekit_tts_voice,
             "ttsSpeed": self.settings.livekit_tts_speed,
@@ -1061,6 +1063,11 @@ class HermesLiveKitVoice:
             max_reply_words = _clamp_int(body.get("maxReplyWords"), self.settings.max_reply_words, 0, 500)
             self.settings.max_reply_words = max_reply_words
             updates["HERMES_LIVEKIT_MAX_REPLY_WORDS"] = str(max_reply_words)
+
+        if "maxSpeechSeconds" in body:
+            max_speech_seconds = _clamp_float(body.get("maxSpeechSeconds"), self.settings.max_speech_seconds, 5.0, 180.0)
+            self.settings.max_speech_seconds = max_speech_seconds
+            updates["HERMES_LIVEKIT_MAX_SPEECH_SECONDS"] = max_speech_seconds
 
         stt_provider = str(body.get("sttProvider") or "").strip()
         if stt_provider:

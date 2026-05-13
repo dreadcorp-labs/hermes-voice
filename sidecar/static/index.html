@@ -1297,6 +1297,10 @@
           <label for="maxReplyWordsInput">Spoken reply limit</label>
           <input id="maxReplyWordsInput" type="number" min="0" max="500" step="10">
         </div>
+        <div class="field">
+          <label for="maxSpeechSecondsInput">Spoken input limit</label>
+          <input id="maxSpeechSecondsInput" type="number" min="5" max="180" step="5">
+        </div>
         <label for="voiceInstructionsInput">Injected Hermes Voice instructions</label>
         <textarea id="voiceInstructionsInput" class="voice-editor" spellcheck="true"></textarea>
         <div class="voice-actions">
@@ -1360,6 +1364,7 @@
     const voiceBehaviorBackBtn = document.getElementById('voiceBehaviorBack');
     const voiceBehaviorBackBottomBtn = document.getElementById('voiceBehaviorBackBottom');
     const maxReplyWordsInputEl = document.getElementById('maxReplyWordsInput');
+    const maxSpeechSecondsInputEl = document.getElementById('maxSpeechSecondsInput');
     const voiceInstructionsInputEl = document.getElementById('voiceInstructionsInput');
     const saveVoiceInstructionsBtn = document.getElementById('saveVoiceInstructions');
     const resetVoiceInstructionsBtn = document.getElementById('resetVoiceInstructions');
@@ -1827,6 +1832,7 @@
       sttSelectEl.value = settings.sttProvider || 'auto';
       sttModelInputEl.value = settings.sttModel || '';
       maxReplyWordsInputEl.value = Number.isFinite(Number(settings.maxReplyWords)) ? String(settings.maxReplyWords) : '90';
+      maxSpeechSecondsInputEl.value = Number.isFinite(Number(settings.maxSpeechSeconds)) ? String(settings.maxSpeechSeconds) : '60';
       voiceInstructionsInputEl.value = settings.voiceInstructions || settings.defaultVoiceInstructions || '';
       emotionToggleEl.checked = Boolean(settings.emotionRecognition);
       renderBrandModel(settings);
@@ -3958,6 +3964,7 @@
     runUpdateBtn.addEventListener('click', runUpdate);
     saveVoiceInstructionsBtn.addEventListener('click', () => saveSettings({
       maxReplyWords: Number(maxReplyWordsInputEl.value || 0),
+      maxSpeechSeconds: Number(maxSpeechSecondsInputEl.value || 60),
       voiceInstructions: voiceInstructionsInputEl.value,
     }));
     voiceBehaviorOpenBtn.addEventListener('click', () => {
@@ -3974,9 +3981,13 @@
       const fallback = runtimeSettings?.defaultVoiceInstructions || '';
       voiceInstructionsInputEl.value = fallback;
       maxReplyWordsInputEl.value = '90';
+      maxSpeechSecondsInputEl.value = '60';
     });
     maxReplyWordsInputEl.addEventListener('change', () => queueSettingsSave({
       maxReplyWords: Number(maxReplyWordsInputEl.value || 0),
+    }));
+    maxSpeechSecondsInputEl.addEventListener('change', () => queueSettingsSave({
+      maxSpeechSeconds: Number(maxSpeechSecondsInputEl.value || 60),
     }));
     emotionToggleEl.addEventListener('change', () => queueSettingsSave({ emotionRecognition: emotionToggleEl.checked }));
     typedTextEl.addEventListener('keydown', (event) => {
