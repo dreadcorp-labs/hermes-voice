@@ -1212,6 +1212,10 @@
     </div>
     <div id="settingsHome" class="settings-form">
       <div class="field">
+        <label for="profileSelect">Hermes profile</label>
+        <select id="profileSelect"></select>
+      </div>
+      <div class="field">
         <label for="modelSelect">Voice model</label>
         <select id="modelSelect"></select>
       </div>
@@ -1335,6 +1339,7 @@
     const attachFileBtn = document.getElementById('attachFile');
     const fileInputEl = document.getElementById('fileInput');
     const attachmentTrayEl = document.getElementById('attachmentTray');
+    const profileSelectEl = document.getElementById('profileSelect');
     const modelSelectEl = document.getElementById('modelSelect');
     const reasoningSelectEl = document.getElementById('reasoningSelect');
     const paletteSelectEl = document.getElementById('paletteSelect');
@@ -1806,9 +1811,11 @@
     function renderSettings(settings) {
       runtimeSettings = settings;
       settingsHydrating = true;
+      populateSelect(profileSelectEl, settings.choices?.profiles || [{ id: 'default', name: 'default' }]);
       populateSelect(modelSelectEl, settings.choices?.models || []);
       populateSelect(ttsSelectEl, settings.choices?.ttsBackends || []);
       populateSelect(sttSelectEl, settings.choices?.sttProviders || []);
+      profileSelectEl.value = settings.profile || 'default';
       modelSelectEl.value = settings.model || 'kimi-k2.6';
       reasoningSelectEl.value = settings.reasoningEffort || 'none';
       ttsSelectEl.value = settings.ttsBackend || 'hermes_voice_native';
@@ -3925,6 +3932,7 @@
       fileInputEl.value = '';
       renderAttachments();
     });
+    profileSelectEl.addEventListener('change', () => queueSettingsSave({ profile: profileSelectEl.value }));
     modelSelectEl.addEventListener('change', () => {
       renderBrandModel();
       queueSettingsSave({ model: modelSelectEl.value });

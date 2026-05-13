@@ -28,8 +28,11 @@ services:
     environment:
       GLAADOS_DEFAULT_VOICE: ${HERMES_TTS_DEFAULT_VOICE:-bf_emma}
       GLAADOS_DEFAULT_LANG: ${HERMES_TTS_DEFAULT_LANG:-en-gb}
-      GLAADOS_KOKORO_ONLY: "true"
-      GLAADOS_TTS_BACKEND: kokoro_glados
+      GLAADOS_KOKORO_ONLY: ${HERMES_TTS_KOKORO_ONLY:-true}
+      GLAADOS_TTS_BACKEND: ${HERMES_TTS_BACKEND:-kokoro_glados}
+      GLAADOS_INWORLD_DEFAULT_VOICE: ${HERMES_TTS_INWORLD_DEFAULT_VOICE:-Wendy}
+      GLAADOS_INWORLD_DEFAULT_MODEL: ${HERMES_TTS_INWORLD_DEFAULT_MODEL:-inworld-tts-1.5-max}
+      GLAADOS_INWORLD_API_KEY: ${HERMES_TTS_INWORLD_API_KEY:-${INWORLD_API_KEY:-}}
       GLAADOS_POCKETTTS_WARM_ON_START: "false"
       GLAADOS_GRAILLON_ENABLED: "true"
       GLAADOS_EFFECTS_PRESET: ${HERMES_TTS_EFFECTS_PRESET:-g_major_pressurized}
@@ -59,6 +62,8 @@ services:
       - tts
     env_file:
       - ./config/hermes-voice.env
+    environment:
+      HERMES_PROFILE_TARGETS: ${HERMES_PROFILE_TARGETS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

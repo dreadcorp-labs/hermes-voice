@@ -88,6 +88,7 @@ VOICE_AFFECT_RULES = {
     "excited": "Emotion rule: match energy lightly while staying useful.",
 }
 SETTINGS_ENV_KEYS = {
+    "HERMES_PROFILE",
     "HERMES_API_MODEL",
     "HERMES_API_PROVIDER",
     "HERMES_API_REASONING_EFFORT",
@@ -176,6 +177,72 @@ def _normalize_hermes_api_url(value: str) -> str:
     elif path.endswith("/v1"):
         path = path + "/chat/completions"
     return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+
+
+def _normalize_profile_id(value: str) -> str:
+    profile = str(value or "").strip()
+    if not profile:
+        return ""
+    profile = re.sub(r"[^A-Za-z0-9_.-]+", "-", profile).strip(".-")
+    return profile[:80]
+
+
+def _normalize_profile_choice(raw: Any, fallback_url: str = "") -> dict[str, str] | None:
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        if "=" in text and "|" not in text:
+            profile_id, url = [part.strip() for part in text.split("=", 1)]
+            name = profile_id
+        else:
+            parts = [part.strip() for part in text.split("|")]
+            profile_id = parts[0] if parts else ""
+            name = parts[1] if len(parts) > 1 and parts[1] else profile_id
+            url = parts[2] if len(parts) > 2 and parts[2] else fallback_url
+    elif isinstance(raw, dict):
+        profile_id = str(raw.get("id") or raw.get("profile") or raw.get("name") or "").strip()
+        name = str(raw.get("name") or raw.get("label") or profile_id).strip()
+        url = str(raw.get("url") or raw.get("apiUrl") or raw.get("api_url") or fallback_url).strip()
+    else:
+        return None
+
+    profile_id = _normalize_profile_id(profile_id)
+    if not profile_id:
+        return None
+    url = _normalize_hermes_api_url(url or fallback_url)
+    if not url:
+        return None
+    return {"id": profile_id, "name": name or profile_id, "url": url}
+
+
+def _parse_profile_choices(value: str, default_url: str) -> list[dict[str, str]]:
+    choices: list[dict[str, str]] = []
+    raw = value.strip()
+    if raw:
+        with contextlib.suppress(json.JSONDecodeError):
+            data = json.loads(raw)
+            if isinstance(data, list):
+                for item in data:
+                    choice = _normalize_profile_choice(item, default_url)
+                    if choice:
+                        choices.append(choice)
+                raw = ""
+        if raw:
+            for part in re.split(r"[,;]\s*", raw):
+                choice = _normalize_profile_choice(part, default_url)
+                if choice:
+                    choices.append(choice)
+
+    default_choice = {"id": "default", "name": "default", "url": _normalize_hermes_api_url(default_url)}
+    deduped: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for choice in [default_choice, *choices]:
+        if not choice["id"] or choice["id"] in seen:
+            continue
+        deduped.append(choice)
+        seen.add(choice["id"])
+    return deduped
 
 
 def _models_url_for_api_url(value: str) -> str:
@@ -374,6 +441,8 @@ class Settings:
     agent_name: str = "Hermes Voice"
     hermes_api_url: str = "http://127.0.0.1:8642/v1/chat/completions"
     hermes_api_key: str = ""
+    hermes_profile: str = "default"
+    profile_choices: list[dict[str, str]] = field(default_factory=list)
     hermes_session_id: str = "livekit-voice-main"
     hermes_model: str = "kimi-k2.6"
     hermes_provider: str = ""
@@ -437,6 +506,12 @@ class Settings:
 
         livekit_url = _env("LIVEKIT_URL", "ws://127.0.0.1:7880")
 
+        hermes_api_url = _normalize_hermes_api_url(_env("HERMES_API_URL", "http://127.0.0.1:8642/v1/chat/completions"))
+        profile_choices = _parse_profile_choices(_env("HERMES_PROFILE_TARGETS", ""), hermes_api_url)
+        selected_profile = _normalize_profile_id(_env("HERMES_PROFILE", "default")) or "default"
+        if selected_profile not in {choice["id"] for choice in profile_choices}:
+            selected_profile = "default"
+
         return cls(
             env_path=env_path,
             host=_env("HERMES_LIVEKIT_VOICE_HOST", "127.0.0.1"),
@@ -450,8 +525,10 @@ class Settings:
             setup_token=_env("HERMES_SETUP_TOKEN"),
             agent_identity=_env("HERMES_LIVEKIT_AGENT_IDENTITY", "hermes-livekit-agent"),
             agent_name=_env("HERMES_LIVEKIT_AGENT_NAME", "Hermes Voice"),
-            hermes_api_url=_normalize_hermes_api_url(_env("HERMES_API_URL", "http://127.0.0.1:8642/v1/chat/completions")),
+            hermes_api_url=hermes_api_url,
             hermes_api_key=_env("HERMES_API_KEY", _env("API_SERVER_KEY")),
+            hermes_profile=selected_profile,
+            profile_choices=profile_choices,
             hermes_session_id=_env("HERMES_SESSION_ID", "livekit-voice-main"),
             hermes_model=_env("HERMES_API_MODEL", "kimi-k2.6"),
             hermes_provider=_env("HERMES_API_PROVIDER", ""),
@@ -628,6 +705,26 @@ class HermesLiveKitVoice:
             can_update_own_metadata=(role == "agent"),
         )
         return token.with_grants(grants).to_jwt()
+
+    def _active_profile_choice(self) -> dict[str, str]:
+        for choice in self.settings.profile_choices:
+            if choice.get("id") == self.settings.hermes_profile:
+                return choice
+        return {"id": "default", "name": "default", "url": self.settings.hermes_api_url}
+
+    def _active_hermes_api_url(self) -> str:
+        return self._active_profile_choice().get("url") or self.settings.hermes_api_url
+
+    def _active_session_id(self, session_id: str | None = None) -> str:
+        if session_id:
+            return session_id
+        profile = self.settings.hermes_profile or "default"
+        if profile == "default":
+            return self.settings.hermes_session_id
+        return f"{self.settings.hermes_session_id}-{profile}"
+
+    def _active_session_key(self) -> str:
+        return f"hermes-voice:{self.settings.hermes_profile or 'default'}"
 
     @staticmethod
     def _setup_auth_token_from_request(request: web.Request) -> str:
@@ -876,6 +973,7 @@ class HermesLiveKitVoice:
             [*self.settings.model_choices, {"id": self.settings.hermes_model, "name": self.settings.hermes_model, "provider": self._model_provider()}]
         )
         return {
+            "profile": self.settings.hermes_profile,
             "model": self.settings.hermes_model,
             "modelProvider": self._model_provider(),
             "reasoningEffort": self.settings.hermes_reasoning_effort,
@@ -893,6 +991,7 @@ class HermesLiveKitVoice:
             "update": self._last_update_status or self._initial_update_status(),
             "choices": {
                 "models": model_choices,
+                "profiles": self.settings.profile_choices,
                 "ttsBackends": TTS_CHOICES,
                 "sttProviders": STT_CHOICES,
             },
@@ -900,6 +999,14 @@ class HermesLiveKitVoice:
 
     def _apply_settings_update(self, body: dict[str, Any]) -> dict[str, Any]:
         updates: dict[str, Any] = {}
+        if "profile" in body:
+            profile = _normalize_profile_id(str(body.get("profile") or ""))
+            allowed_profiles = {choice["id"] for choice in self.settings.profile_choices}
+            if not profile or profile not in allowed_profiles:
+                raise ValueError("Unsupported Hermes profile")
+            self.settings.hermes_profile = profile
+            updates["HERMES_PROFILE"] = profile
+
         model = str(body.get("model") or "").strip()
         if model:
             allowed_models = {choice["id"] for choice in self.settings.model_choices}
@@ -2276,7 +2383,8 @@ class HermesLiveKitVoice:
         return {
             "Authorization": f"Bearer {self.settings.hermes_api_key}",
             "Content-Type": "application/json",
-            "X-Hermes-Session-Id": session_id or self.settings.hermes_session_id,
+            "X-Hermes-Session-Id": self._active_session_id(session_id),
+            "X-Hermes-Session-Key": self._active_session_key(),
         }
 
     def _voice_affect_prompt(self, affect: dict[str, Any] | None) -> str | None:
@@ -2438,13 +2546,13 @@ class HermesLiveKitVoice:
         body = self._hermes_body(transcript, stream=False, voice_affect=voice_affect)
         LOG.info(
             "livekit hermes request start session=%s model=%s stream=false transcript_chars=%d",
-            session_id or self.settings.hermes_session_id,
+            self._active_session_id(session_id),
             body.get("model"),
             len(transcript),
         )
         timeout = ClientTimeout(total=max(10.0, self.settings.hermes_timeout_seconds))
         async with ClientSession(timeout=timeout) as session:
-            async with session.post(self.settings.hermes_api_url, headers=headers, json=body) as response:
+            async with session.post(self._active_hermes_api_url(), headers=headers, json=body) as response:
                 payload = await response.text()
                 if response.status >= 400:
                     raise RuntimeError(f"Hermes API {response.status}: {payload[:500]}")
@@ -2731,7 +2839,7 @@ class HermesLiveKitVoice:
         voice_affect: dict[str, Any] | None = None,
         session_id: str | None = None,
     ):
-        active_session_id = session_id or self.settings.hermes_session_id
+        active_session_id = self._active_session_id(session_id)
         headers = self._hermes_headers(session_id=active_session_id)
         body = self._hermes_body(transcript, stream=True, voice_affect=voice_affect)
         timeout = ClientTimeout(total=max(10.0, self.settings.hermes_timeout_seconds))
@@ -2752,7 +2860,7 @@ class HermesLiveKitVoice:
             len(transcript),
         )
         async with ClientSession(timeout=timeout) as session:
-            async with session.post(self.settings.hermes_api_url, headers=headers, json=body) as response:
+            async with session.post(self._active_hermes_api_url(), headers=headers, json=body) as response:
                 LOG.info(
                     "voice-debug %s livekit hermes headers status=%s elapsed=%.3fs",
                     trace_id,
@@ -3168,6 +3276,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
                 "status": status,
                 "setupRequired": bot.settings.setup_required(),
                 "missingSettings": bot.settings.missing_required_settings(),
+                "activeProfile": bot.settings.hermes_profile,
                 "activeModel": bot.settings.hermes_model,
                 "modelProvider": bot._model_provider(),
                 "ttsBackend": bot.settings.livekit_tts_backend,

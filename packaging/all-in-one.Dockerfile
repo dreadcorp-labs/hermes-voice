@@ -62,6 +62,8 @@ ENV HERMES_LIVEKIT_STATIC_DIR=/app/sidecar/static \
     GLAADOS_PLUGIN_DIR=/opt/vst3 \
     GLAADOS_KOKORO_ONLY=true \
     GLAADOS_TTS_BACKEND=kokoro_glados \
+    GLAADOS_INWORLD_DEFAULT_VOICE=Wendy \
+    GLAADOS_INWORLD_DEFAULT_MODEL=inworld-tts-1.5-max \
     HF_HOME=/data/huggingface
 
 VOLUME ["/config", "/data"]

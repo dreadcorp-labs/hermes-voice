@@ -691,7 +691,12 @@ def _save_settings(settings: RuntimeSettings, user_presets: dict[str, SavedPrese
 def _load_settings() -> tuple[RuntimeSettings, dict[str, SavedPreset]]:
     _ensure_data_dir()
     if not SETTINGS_PATH.exists() and DEFAULT_SETTINGS_PATH.exists():
-        SETTINGS_PATH.write_text(DEFAULT_SETTINGS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        default_payload = json.loads(DEFAULT_SETTINGS_PATH.read_text(encoding="utf-8"))
+        settings_payload = default_payload.get("settings") if isinstance(default_payload, dict) else None
+        if isinstance(settings_payload, dict) and DEFAULT_TTS_BACKEND != "kokoro_glados":
+            settings_payload["tts_backend"] = DEFAULT_TTS_BACKEND
+            settings_payload["voice"] = INWORLD_DEFAULT_VOICE if DEFAULT_TTS_BACKEND == "inworld_fx" else DEFAULT_VOICE
+        SETTINGS_PATH.write_text(json.dumps(default_payload, indent=2) + "\n", encoding="utf-8")
     if SETTINGS_PATH.exists():
         try:
             payload = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
