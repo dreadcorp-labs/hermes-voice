@@ -111,9 +111,9 @@ SETUP_ENV_KEYS = SETTINGS_ENV_KEYS | {
     "HERMES_LIVEKIT_STT_MODEL",
 }
 DEFAULT_MODEL_CHOICES = (
+    {"id": "hermes-agent", "name": "Hermes default", "provider": "hermes"},
     {"id": "kimi-k2.6", "name": "Kimi K2.6", "provider": "kimi-coding"},
     {"id": "kimi-k2.5", "name": "Kimi K2.5", "provider": "kimi-coding"},
-    {"id": "hermes-agent", "name": "Hermes default", "provider": "hermes"},
     {"id": "gpt-5.4-mini", "name": "Hermes fast", "provider": "hermes"},
 )
 TTS_CHOICES = (
@@ -444,7 +444,7 @@ class Settings:
     hermes_profile: str = "default"
     profile_choices: list[dict[str, str]] = field(default_factory=list)
     hermes_session_id: str = "livekit-voice-main"
-    hermes_model: str = "kimi-k2.6"
+    hermes_model: str = "hermes-agent"
     hermes_provider: str = ""
     model_choices: list[dict[str, str]] = field(default_factory=lambda: list(DEFAULT_MODEL_CHOICES))
     hermes_reasoning_effort: str = "none"
@@ -530,7 +530,7 @@ class Settings:
             hermes_profile=selected_profile,
             profile_choices=profile_choices,
             hermes_session_id=_env("HERMES_SESSION_ID", "livekit-voice-main"),
-            hermes_model=_env("HERMES_API_MODEL", "kimi-k2.6"),
+            hermes_model=_env("HERMES_API_MODEL", "hermes-agent"),
             hermes_provider=_env("HERMES_API_PROVIDER", ""),
             model_choices=_dedupe_model_choices(
                 [*DEFAULT_MODEL_CHOICES, *_parse_model_choices(_env("HERMES_LIVEKIT_MODEL_CHOICES", ""))]
@@ -3400,7 +3400,8 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         return web.json_response(bot._settings_payload())
 
     async def settings_patch(request: web.Request) -> web.Response:
-        bot.require_setup_token(request)
+        if bot.settings.setup_required():
+            bot.require_setup_token(request)
         try:
             body = await request.json()
         except json.JSONDecodeError:

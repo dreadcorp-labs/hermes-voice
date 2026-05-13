@@ -59,7 +59,7 @@ HERMES_API_URL="${HERMES_API_URL:-$(read_env_value HERMES_API_URL)}"
 HERMES_API_URL="${HERMES_API_URL:-http://host.docker.internal:8642/v1/chat/completions}"
 HERMES_API_KEY="${HERMES_API_KEY:-${API_SERVER_KEY:-$(read_env_value HERMES_API_KEY)}}"
 HERMES_API_MODEL="${HERMES_API_MODEL:-$(read_env_value HERMES_API_MODEL)}"
-HERMES_API_MODEL="${HERMES_API_MODEL:-kimi-k2.6}"
+HERMES_API_MODEL="${HERMES_API_MODEL:-hermes-agent}"
 case "$HERMES_API_MODEL" in
   kimi-*|moonshot*) default_hermes_api_provider="kimi-coding" ;;
   *) default_hermes_api_provider="hermes" ;;

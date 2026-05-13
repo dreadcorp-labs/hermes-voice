@@ -183,7 +183,7 @@ if [ -z "$HERMES_API_KEY" ] && [ -f "$HOME/.hermes/.env" ]; then
   HERMES_API_KEY="${HERMES_API_KEY#\'}"
 fi
 HERMES_API_MODEL="${HERMES_API_MODEL:-$(read_existing_config HERMES_API_MODEL)}"
-HERMES_API_MODEL="${HERMES_API_MODEL:-kimi-k2.6}"
+HERMES_API_MODEL="${HERMES_API_MODEL:-hermes-agent}"
 case "$HERMES_API_MODEL" in
   kimi-*|moonshot*) default_hermes_api_provider="kimi-coding" ;;
   *) default_hermes_api_provider="hermes" ;;

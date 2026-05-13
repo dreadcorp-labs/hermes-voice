@@ -1635,7 +1635,7 @@
     }
 
     function selectedModelLabel(settings = runtimeSettings) {
-      const modelId = modelSelectEl?.value || settings?.model || 'kimi-k2.6';
+      const modelId = modelSelectEl?.value || settings?.model || 'hermes-agent';
       const choices = settings?.choices?.models || [];
       const match = choices.find((choice) => choice.id === modelId);
       const provider = settings?.modelProvider || match?.provider || '';
@@ -1816,7 +1816,7 @@
       populateSelect(ttsSelectEl, settings.choices?.ttsBackends || []);
       populateSelect(sttSelectEl, settings.choices?.sttProviders || []);
       profileSelectEl.value = settings.profile || 'default';
-      modelSelectEl.value = settings.model || 'kimi-k2.6';
+      modelSelectEl.value = settings.model || 'hermes-agent';
       reasoningSelectEl.value = settings.reasoningEffort || 'none';
       ttsSelectEl.value = settings.ttsBackend || 'hermes_voice_native';
       sttSelectEl.value = settings.sttProvider || 'auto';
