@@ -2372,7 +2372,8 @@ class HermesLiveKitVoice:
         provider_override = self._hermes_provider_override(model)
         if self.settings.max_reply_words > 0:
             length_rule = (
-                f" Keep the spoken final answer under {self.settings.max_reply_words} words. "
+                f" Target about {self.settings.max_reply_words} words or fewer for the spoken final answer. "
+                "Return a complete thought, preferably one to three short sentences. "
                 "If more detail would help, summarize the key points and offer to continue."
             )
         else:
@@ -2540,9 +2541,6 @@ class HermesLiveKitVoice:
         timings = {"hermes": time.monotonic() - hermes_started}
         if not reply:
             return "", timings
-        reply, capped = self._cap_spoken_reply(reply)
-        if capped:
-            timings["reply_capped"] = 1.0
         await self._publish_state("thinking", stage="tts", transcript=transcript)
         speak_timings = await self._speak_reply(reply, turn_start)
         timings.update(speak_timings)
@@ -2563,34 +2561,6 @@ class HermesLiveKitVoice:
         if re.search(r"401|403|unauthorized|forbidden|api key|authentication", message, flags=re.I):
             return "Hermes rejected the API credentials for this voice session. Check the Hermes API key in setup."
         return "Hermes returned an error before I could answer. Check the voice status panel or logs for the exact error."
-
-    @staticmethod
-    def _word_count(text: str) -> int:
-        return len(re.findall(r"\S+", text))
-
-    @staticmethod
-    def _cap_text_to_words(text: str, limit: int) -> tuple[str, bool]:
-        clean = re.sub(r"\s+", " ", text).strip()
-        if limit <= 0 or not clean:
-            return clean, False
-        words = list(re.finditer(r"\S+", clean))
-        if len(words) <= limit:
-            return clean, False
-        capped = clean[: words[limit - 1].end()].rstrip()
-        min_words = max(1, int(limit * 0.65))
-        min_cut = words[min_words - 1].end() if len(words) >= min_words else 0
-        sentence_cut = max(capped.rfind("."), capped.rfind("!"), capped.rfind("?"), capped.rfind(";"), capped.rfind(":"))
-        if sentence_cut >= min_cut:
-            capped = capped[: sentence_cut + 1].rstrip()
-        elif not re.search(r"[.!?;:]$", capped):
-            capped = f"{capped}."
-        return capped, True
-
-    def _cap_spoken_reply(self, reply: str) -> tuple[str, bool]:
-        limit = max(0, int(self.settings.max_reply_words or 0))
-        if limit <= 0:
-            return re.sub(r"\s+", " ", reply).strip(), False
-        return self._cap_text_to_words(reply, limit)
 
     async def _ask_hermes(
         self,
@@ -2633,7 +2603,10 @@ class HermesLiveKitVoice:
             affect_hint = f"\nVoice-affect context, if useful for tone: {json.dumps(visible, ensure_ascii=False, sort_keys=True)}"
         length_rule = ""
         if self.settings.max_reply_words > 0:
-            length_rule = f" Keep the reply under {self.settings.max_reply_words} words."
+            length_rule = (
+                f" Target about {self.settings.max_reply_words} words or fewer, "
+                "but finish a complete thought instead of cutting off."
+            )
         prompt = (
             "You are Hermes Voice, a concise voice assistant. Listen to the user's audio and answer in natural spoken English. "
             "Keep the reply to one or two conversational sentences unless the user explicitly asks for detail. "
@@ -2697,33 +2670,15 @@ class HermesLiveKitVoice:
         hermes_started = time.monotonic()
         first_sentence_at: float | None = None
         acknowledgement = self._voice_affect_acknowledgement(voice_affect)
-        spoken_word_count = 0
-        spoken_reply_parts: list[str] = []
-        reply_limit_reached = False
 
         async def queue_reply_text(text: str) -> None:
-            nonlocal first_sentence_at, spoken_word_count, reply_limit_reached
-            if reply_limit_reached:
-                return
+            nonlocal first_sentence_at
             clean = re.sub(r"\s+", " ", text).strip()
-            if not clean:
-                return
-            limit = max(0, int(self.settings.max_reply_words or 0))
-            if limit > 0:
-                remaining = limit - spoken_word_count
-                if remaining <= 0:
-                    reply_limit_reached = True
-                    return
-                clean, capped = self._cap_text_to_words(clean, remaining)
-                if capped:
-                    reply_limit_reached = True
             if not clean:
                 return
             if first_sentence_at is None:
                 first_sentence_at = time.monotonic()
                 timings["hermes_first_sentence"] = first_sentence_at - hermes_started
-            spoken_word_count += self._word_count(clean)
-            spoken_reply_parts.append(clean)
             await sentence_queue.put({"text": clean, "kind": "reply"})
 
         async def producer() -> str:
@@ -2740,21 +2695,15 @@ class HermesLiveKitVoice:
                     sentences, pending_text = self._pop_complete_tts_sentences(pending_text)
                     for sentence in sentences:
                         await queue_reply_text(sentence)
-                        if reply_limit_reached:
-                            break
-                    if reply_limit_reached:
-                        break
 
                 final_tail = pending_text.strip()
-                if final_tail and not reply_limit_reached:
+                if final_tail:
                     if not re.search(r"[.!?;:]$", final_tail):
                         final_tail += "."
                     await queue_reply_text(final_tail)
 
                 timings["hermes"] = time.monotonic() - hermes_started
-                if reply_limit_reached:
-                    timings["reply_capped"] = 1.0
-                reply = " ".join(spoken_reply_parts).strip() or "".join(reply_parts).strip()
+                reply = "".join(reply_parts).strip()
                 if acknowledgement and not reply.startswith(acknowledgement):
                     return f"{acknowledgement} {reply}".strip()
                 return reply
