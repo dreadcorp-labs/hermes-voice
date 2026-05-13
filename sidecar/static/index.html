@@ -1394,12 +1394,12 @@
     const PIANO_NOTE_VOLUME = 0.19;
     const PIANO_NOTE_MAX_SECONDS = 4;
     const ENABLE_VOICE_BARGE_IN = true;
-    const INTERRUPT_MIC_THRESHOLD = 0.38;
-    const INTERRUPT_REMOTE_RATIO = 2.2;
-    const INTERRUPT_MIN_REMOTE_MARGIN = 0.08;
-    const INTERRUPT_HOLD_MS = 520;
+    const INTERRUPT_MIC_THRESHOLD = 0.24;
+    const INTERRUPT_REMOTE_RATIO = 0.55;
+    const INTERRUPT_MIN_REMOTE_MARGIN = 0.06;
+    const INTERRUPT_HOLD_MS = 320;
     const INTERRUPT_COOLDOWN_MS = 2200;
-    const INTERRUPT_AFTER_SPEAKING_MS = 900;
+    const INTERRUPT_AFTER_SPEAKING_MS = 450;
     const TAU = Math.PI * 2;
     const AGENT_IDENTITY = 'hermes-livekit-agent';
     const AGENT_NAME = 'Hermes Voice';
@@ -3595,7 +3595,7 @@
       }
       const dynamicThreshold = Math.max(
         INTERRUPT_MIC_THRESHOLD,
-        (remoteLevel * INTERRUPT_REMOTE_RATIO) + INTERRUPT_MIN_REMOTE_MARGIN,
+        Math.min(0.62, (remoteLevel * INTERRUPT_REMOTE_RATIO) + INTERRUPT_MIN_REMOTE_MARGIN),
       );
       const aboveVoice = level >= dynamicThreshold;
       if (!aboveVoice) {
@@ -3626,6 +3626,7 @@
           reliable: true,
           topic: 'hermes.control',
         });
+        log(`Interrupt sent: ${reason}`);
         clearToolReadout();
       } catch (err) {
         log(`Interrupt failed: ${err.message || err}`);
@@ -3888,6 +3889,13 @@
     }
 
     async function toggleMute() {
+      if (currentState === 'speaking') {
+        if (muted) {
+          await setMicrophoneMuted(false, 'Microphone live for interrupt');
+        }
+        await sendInterrupt('button');
+        return;
+      }
       await setMicrophoneMuted(!muted);
     }
 
