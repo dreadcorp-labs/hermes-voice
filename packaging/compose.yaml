@@ -5,11 +5,17 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     restart: unless-stopped
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
 
   livekit:
     image: livekit/livekit-server:v1.9.2
     command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
     restart: unless-stopped
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
     depends_on:
       - redis
     ports:
@@ -25,6 +31,9 @@ services:
     image: hermes-voice/tts:local
     restart: unless-stopped
     init: true
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
     environment:
       GLAADOS_DEFAULT_VOICE: ${HERMES_TTS_DEFAULT_VOICE:-bf_emma}
       GLAADOS_DEFAULT_LANG: ${HERMES_TTS_DEFAULT_LANG:-en-gb}
@@ -57,6 +66,10 @@ services:
     image: hermes-voice/sidecar:local
     restart: unless-stopped
     init: true
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
+      net.unraid.docker.webui: ${HERMES_VOICE_UNRAID_WEBUI:-http://[IP]:[PORT:8765]/}
     depends_on:
       - livekit
       - tts

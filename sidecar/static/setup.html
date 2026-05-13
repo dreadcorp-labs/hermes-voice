@@ -245,7 +245,7 @@
       </div>
       <label class="check">
         <span>Emotion recognition</span>
-        <input id="emotionRecognition" name="emotionRecognition" type="checkbox" checked>
+        <input id="emotionRecognition" name="emotionRecognition" type="checkbox">
       </label>
       <button id="save" type="submit">Save and Restart Voice Stack</button>
       <div id="status" class="status" role="status"></div>
@@ -283,7 +283,7 @@
       document.getElementById('hermesApiUrl').value = setup.hermesApiUrl || 'http://host.docker.internal:8642/v1/chat/completions';
       document.getElementById('livekitPublicUrl').value = setup.livekitPublicUrl || 'ws://localhost:7880';
       document.getElementById('ttsUrl').value = setup.ttsUrl || 'http://tts:8889/v1/audio/speech';
-      document.getElementById('emotionRecognition').checked = setup.emotionRecognition !== false;
+      document.getElementById('emotionRecognition').checked = setup.emotionRecognition === true;
       document.getElementById('discoveryCidrs').value = setup.discoveryCidrs || '';
       if (!setup.setupRequired) {
         setStatus('Setup is already complete. Opening Hermes Voice...');

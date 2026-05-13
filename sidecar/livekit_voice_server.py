@@ -479,7 +479,7 @@ class Settings:
     kimi_audio_replicate_url: str = "https://api.replicate.com/v1/predictions"
     kimi_audio_timeout_seconds: float = 90.0
     kimi_audio_max_clip_seconds: float = 12.0
-    emotion2vec_enabled: bool = True
+    emotion2vec_enabled: bool = False
     emotion2vec_python: str = str(Path.home() / ".hermes/hermes-agent/venv/bin/python")
     emotion2vec_helper: Path = Path(__file__).with_name("emotion2vec_analyze.py")
     emotion2vec_model: str = PACKAGED_EMOTION_MODEL
@@ -573,7 +573,7 @@ class Settings:
             ),
             kimi_audio_timeout_seconds=float(_env("HERMES_KIMI_AUDIO_TIMEOUT_SECONDS", "90")),
             kimi_audio_max_clip_seconds=float(_env("HERMES_KIMI_AUDIO_MAX_CLIP_SECONDS", "12")),
-            emotion2vec_enabled=_env("HERMES_EMOTION2VEC_ENABLED", "true").lower() not in {"0", "false", "no"},
+            emotion2vec_enabled=_env("HERMES_EMOTION2VEC_ENABLED", "false").lower() not in {"0", "false", "no"},
             emotion2vec_python=_env("HERMES_EMOTION2VEC_PYTHON", str(Path.home() / ".hermes/hermes-agent/venv/bin/python")),
             emotion2vec_helper=Path(
                 _env("HERMES_EMOTION2VEC_HELPER", str(Path(__file__).with_name("emotion2vec_analyze.py")))
@@ -3361,7 +3361,7 @@ def create_app(bot: HermesLiveKitVoice) -> web.Application:
         tts_url = str(body.get("ttsUrl") or "").strip()
         stt_provider = str(body.get("sttProvider") or "auto").strip().lower() or "auto"
         stt_model = str(body.get("sttModel") or "").strip()
-        emotion_enabled = bool(body.get("emotionRecognition", True))
+        emotion_enabled = bool(body.get("emotionRecognition", False))
 
         if hermes_api_url and not re.match(r"^https?://", hermes_api_url):
             raise web.HTTPBadRequest(text="Hermes API URL must be an HTTP URL or host:port")

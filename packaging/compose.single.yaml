@@ -10,6 +10,10 @@ services:
     restart: unless-stopped
     init: true
     network_mode: host
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
+      net.unraid.docker.webui: ${HERMES_VOICE_UNRAID_WEBUI:-http://[IP]:[PORT:8765]/}
     environment:
       CONFIG_DIR: /config
       DATA_DIR: /data
@@ -51,6 +55,9 @@ services:
   updater:
     image: docker:28-cli
     restart: unless-stopped
+    labels:
+      net.unraid.docker.managed: compose
+      net.unraid.docker.icon: ${HERMES_VOICE_UNRAID_ICON:-/boot/config/plugins/dockerMan/images/hermes-voice.svg}
     command: ["sh", "-lc", "apk add --no-cache bash >/dev/null && exec sh /usr/local/bin/hermes-voice-update-daemon"]
     environment:
       HERMES_VOICE_INSTALL_DIR: ${HERMES_VOICE_INSTALL_DIR}
